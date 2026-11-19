@@ -181,3 +181,7 @@ After provisioning, use two Macs on the same Apple Account to verify initial syn
 - [Flutter macOS build and distribution](https://docs.flutter.dev/platform-integration/macos/building)
 - [Apple iCloud capability configuration](https://developer.apple.com/documentation/xcode/configuring-icloud-services/)
 - [Apple NSPasteboard changeCount](https://developer.apple.com/documentation/appkit/nspasteboard/changecount)
+
+## License
+
+ClipShelf is released under the [MIT License](LICENSE).
