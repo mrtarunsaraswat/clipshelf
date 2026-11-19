@@ -15,10 +15,11 @@ ThemeData buildAppTheme(
   final colors = dark
       ? ShelfColors.dark(accent, glass: glass)
       : ShelfColors.light(accent, glass: glass);
-  final scheme = ColorScheme.fromSeed(
-    seedColor: accent,
-    brightness: brightness,
-  ).copyWith(primary: colors.accentText, onPrimary: colors.onAccent);
+  final scheme = ColorScheme.fromSeed(seedColor: accent, brightness: brightness)
+      .copyWith(
+        primary: colors.accentText,
+        onPrimary: ShelfColors.onColor(colors.accentText),
+      );
   final popupSurface = dark ? const Color(0xFF2B2B2F) : const Color(0xFFF7F7F9);
   final radius = BorderRadius.circular(ShelfRadius.sm + 2);
   final base = ThemeData(
@@ -38,6 +39,14 @@ ThemeData buildAppTheme(
       thickness: 1,
     ),
     iconTheme: IconThemeData(color: colors.textSecondary, size: 18),
+    listTileTheme: ListTileThemeData(
+      titleTextStyle: TextStyle(
+        fontFamily: '.AppleSystemUIFont',
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: colors.textPrimary,
+      ),
+    ),
     textTheme: base.textTheme.apply(
       bodyColor: colors.textPrimary,
       displayColor: colors.textPrimary,

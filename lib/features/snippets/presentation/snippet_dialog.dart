@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/tokens.dart';
+import '../../../app/widgets/settings_group.dart';
 import '../domain/snippet_draft.dart';
 
 class SnippetDialog extends StatefulWidget {
@@ -22,7 +24,17 @@ class _SnippetDialogState extends State<SnippetDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('A little less typing.'),
+    icon: SettingsIcon(
+      Icons.bookmark_add_outlined,
+      color: context.shelf.kindSnippet,
+    ),
+    title: const Text(
+      'A little less typing.',
+      style: TextStyle(
+        fontSize: ShelfType.heading + 1,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
     content: SizedBox(
       width: 440,
       child: Form(
@@ -30,7 +42,11 @@ class _SnippetDialogState extends State<SnippetDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Save an address, reply, or anything you use often.'),
+            Text(
+              'Save an address, reply, or anything you use often.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: context.shelf.textSecondary),
+            ),
             const SizedBox(height: 24),
             TextFormField(
               controller: _title,
