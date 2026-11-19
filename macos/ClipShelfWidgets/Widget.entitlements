@@ -1,3 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict><key>com.apple.security.app-sandbox</key><true/></dict></plist>
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- Lets builds without a Team-ID App Group (ad-hoc, no paid account) share
+	     Desktop Favorites through this one folder. Must match
+	     WidgetFavoritesStore.fallbackRelativePath. Not valid for the Mac App Store. -->
+	<key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+	<array>
+		<string>/Library/Application Support/ClipShelf/Widget/</string>
+	</array>
+</dict>
+</plist>

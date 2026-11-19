@@ -1,6 +1,11 @@
 # Desktop Favorites setup
 
-The native widget and app need the same signed App Group. A paid membership is not required for the macOS-only local path below. In 1.4.2, a free Personal Team archive was built and its signatures/group entitlements verified; the running app successfully accessed the shared folder and enabled Desktop Favorites. Widget display/copy still needs a live favorite check.
+The widget and the app share a small favorites snapshot through a folder both can reach:
+
+- **Ad-hoc / unpaid builds (the public download):** `~/Library/Application Support/ClipShelf/Widget/`. The host app isn't sandboxed and writes it directly; the sandboxed widget reaches only that folder through a `temporary-exception.files.home-relative-path.read-write` entitlement in `macos/ClipShelfWidgets/Widget.entitlements`. This needs no Apple account and is confirmed working with an ad-hoc build installed in /Applications. The exception is not allowed on the Mac App Store.
+- **Team-signed builds:** if the build has an authorized App Group (Personal Team or Developer ID, below), that container is used instead.
+
+The rest of this guide covers the App Group paths. A paid membership is not required for the macOS-only local path below. In 1.4.2, a free Personal Team archive was built and its signatures/group entitlements verified; the running app successfully accessed the shared folder and enabled Desktop Favorites. Widget display/copy still needs a live favorite check.
 
 ## Free local testing on this Mac
 

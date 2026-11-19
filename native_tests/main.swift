@@ -210,6 +210,13 @@ _ = try widgetStore.write(WidgetLibraryExporter.snapshot(clips: [widgetSample], 
 check(widgetStore.read() == .empty && widgetStore.text(for: "favorite") == nil && widgetStore.copiedID() == nil, "disabling Favorites clears content and disables copy")
 try Data("invalid".utf8).write(to: widgetFolder.appendingPathComponent("widget-favorites.json"))
 check(widgetStore.read() == .empty, "unreadable widget snapshot fails closed")
+let fallbackHome = folder.appendingPathComponent("home", isDirectory: true)
+let fallbackStore = try WidgetFavoritesStore.accessibleStore(at: WidgetFavoritesStore.fallbackDirectory(home: fallbackHome.path))
+check(fallbackStore.available && fallbackStore.directory?.path == fallbackHome.path + "/Library/Application Support/ClipShelf/Widget", "unsigned builds share Favorites through the Application Support folder")
+_ = try fallbackStore.write(widgetSnapshot)
+check(WidgetFavoritesStore(directory: fallbackStore.directory).text(for: "favorite") == "Hello 🌍", "widget reads what the host wrote to the fallback folder")
+let widgetEntitlements = try PropertyListSerialization.propertyList(from: Data(contentsOf: URL(fileURLWithPath: "macos/ClipShelfWidgets/Widget.entitlements")), format: nil) as? [String: Any]
+check((widgetEntitlements?["com.apple.security.temporary-exception.files.home-relative-path.read-write"] as? [String]) == ["/" + WidgetFavoritesStore.fallbackRelativePath + "/"], "widget sandbox exception matches the fallback folder")
 
 let budgetBoards = (0..<30).map { Pinboard(id: "budget-\($0)", name: "Board \($0)", color: 0) }
 let budgetClips: [Clip] = budgetBoards.flatMap { board in
