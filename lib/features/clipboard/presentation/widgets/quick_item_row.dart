@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:clipshelf/app/theme.dart';
+import 'package:clipshelf/app/tokens.dart';
+import 'package:clipshelf/app/widgets/hover_surface.dart';
+import 'package:clipshelf/app/widgets/keycap.dart';
 import 'package:clipshelf/features/clipboard/domain/clipboard_item.dart';
 import 'package:clipshelf/features/clipboard/domain/pinboard.dart';
 import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart';
 import 'package:clipshelf/features/clipboard/presentation/clipboard_style.dart';
 import 'package:clipshelf/features/clipboard/presentation/widgets/item_context_menu.dart';
 
+/// One history row in the menu-bar and floating panels, Spotlight-style.
 class QuickItemRow extends StatelessWidget {
   const QuickItemRow({
     super.key,
@@ -22,115 +25,128 @@ class QuickItemRow extends StatelessWidget {
   final ClipboardActions actions;
   final List<Pinboard> boards;
   final VoidCallback onSelected;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.shelf;
-    return Material(
-      color: active ? colors.surfaceSelected : Colors.transparent,
-      child: InkWell(
-        key: ValueKey('quick-item-${item.id}'),
-        onTap: () {
-          onSelected();
-          actions.paste(item);
-        },
-        onSecondaryTapDown: (details) async {
-          final value = await showMenu<String>(
-            context: context,
-            position: RelativeRect.fromLTRB(
-              details.globalPosition.dx,
-              details.globalPosition.dy,
-              0,
-              0,
-            ),
-            items: itemContextMenu(item, boards, colors),
-          );
-          if (value != null) actions.handleItem(value, item);
-        },
-        child: SizedBox(
-          height: 80,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: cardColor(
-                      item,
-                      boards,
-                      colors,
-                    ).withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(8),
+    final tint = cardColor(item, boards, colors);
+    return HoverSurface(
+      selected: active,
+      radius: ShelfRadius.sm + 2,
+      selectedColor: colors.surfaceSelected,
+      builder: (context, hovered) => Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          key: ValueKey('quick-item-${item.id}'),
+          borderRadius: BorderRadius.circular(ShelfRadius.sm + 2),
+          splashFactory: NoSplash.splashFactory,
+          hoverColor: Colors.transparent,
+          highlightColor: colors.surfaceHover,
+          onTap: () {
+            onSelected();
+            actions.paste(item);
+          },
+          onSecondaryTapDown: (details) async {
+            final value = await showMenu<String>(
+              context: context,
+              position: RelativeRect.fromLTRB(
+                details.globalPosition.dx,
+                details.globalPosition.dy,
+                0,
+                0,
+              ),
+              items: itemContextMenu(item, boards, colors),
+            );
+            if (value != null) actions.handleItem(value, item);
+          },
+          child: SizedBox(
+            height: 64,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: tint.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(ShelfRadius.sm),
+                    ),
+                    child: Icon(clipIcon(item), size: 17, color: tint),
                   ),
-                  child: Icon(
-                    clipIcon(item),
-                    size: 19,
-                    color: cardColor(item, boards, colors),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: item.preview != null
-                      ? Align(
-                          alignment: Alignment.centerLeft,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.memory(
-                              item.preview!,
-                              width: 110,
-                              height: 56,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, error, stack) => Text(
-                                item.title,
-                                maxLines: 2,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: item.preview != null
+                        ? Align(
+                            alignment: Alignment.centerLeft,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.memory(
+                                item.preview!,
+                                width: 96,
+                                height: 46,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, error, stack) => Text(
+                                  item.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                item.title.replaceAll('\n', ' '),
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: ShelfType.body,
+                                  fontWeight: FontWeight.w500,
+                                  color: colors.textPrimary,
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${item.source} · ${formatClipAge(item.date)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: ShelfType.caption,
+                                  color: colors.textTertiary,
+                                ),
+                              ),
+                            ],
                           ),
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              item.title.replaceAll('\n', ' '),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12, height: 1.4),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              item.source,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: colors.textTertiary,
-                              ),
-                            ),
-                          ],
+                  ),
+                  if (index < 9)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Keycap('⌘${index + 1}', dense: true),
+                    ),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 150),
+                    opacity: hovered || active ? 1 : 0,
+                    child: IconButton(
+                      tooltip: 'Copy to clipboard',
+                      onPressed: () => actions.copy(item),
+                      style: IconButton.styleFrom(
+                        hoverColor: colors.surfaceHover,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                ),
-                if (index < 9)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Text(
-                      '⌘${index + 1}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: colors.textTertiary,
+                      ),
+                      icon: Icon(
+                        Icons.copy_outlined,
+                        size: 16,
+                        color: colors.accentText,
                       ),
                     ),
                   ),
-                IconButton(
-                  tooltip: 'Copy to clipboard',
-                  onPressed: () => actions.copy(item),
-                  icon: Icon(
-                    Icons.copy_outlined,
-                    size: 17,
-                    color: colors.accentText,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
