@@ -69,7 +69,9 @@ This feature reads saved files and does not request Screen Recording permission.
 
 ## Build and test
 
-Requires macOS 12+, Flutter stable, Xcode, and the macOS build tools. Developed with Flutter 3.47.8 / Dart 3.13.7. The current binary contains arm64 and x86_64; Intel runtime testing is still required if you distribute it. Future Flutter releases may change Intel support.
+Requires macOS 12+, Flutter stable, Xcode, and the macOS build tools. Built and tested with Flutter 3.50.0.
+
+**CI:** [.github/workflows/macos.yml](.github/workflows/macos.yml) runs on every push and pull request: analyze, Flutter tests, universal build, and native tests. Each run uploads `ClipShelf.app` as a ZIP under **Actions → the run → Artifacts** (kept 30 days, GitHub sign-in required). Pushing a tag such as `v1.0.1` — matching `version:` in `pubspec.yaml` — also builds the unnotarized DMG and publishes it as a GitHub release. The current binary contains arm64 and x86_64; Intel runtime testing is still required if you distribute it. Future Flutter releases may change Intel support.
 
 ```sh
 flutter pub get
