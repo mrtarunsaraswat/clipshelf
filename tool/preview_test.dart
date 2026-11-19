@@ -25,7 +25,11 @@ void main() {
     const floatingPreview = bool.fromEnvironment('FLOATING_PREVIEW');
     const quickPreview =
         bool.fromEnvironment('QUICK_PREVIEW') || floatingPreview;
-    tester.view.physicalSize = quickPreview
+    // Renders Preferences into build/ for review; not a committed golden.
+    const preferencesPreview = bool.fromEnvironment('PREFERENCES_PREVIEW');
+    tester.view.physicalSize = preferencesPreview
+        ? const Size(760, 640)
+        : quickPreview
         ? const Size(440, 560)
         : const Size(1280, 430);
     tester.view.devicePixelRatio = 1;
@@ -112,6 +116,17 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (preferencesPreview) {
+      await tester.tap(find.byTooltip('Preferences'));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byKey(const ValueKey('preview')),
+        matchesGoldenFile(
+          '../build/preferences-preview${dark ? '-dark' : ''}.png',
+        ),
+      );
+      return;
+    }
     final name = floatingPreview
         ? 'floating-preview'
         : quickPreview

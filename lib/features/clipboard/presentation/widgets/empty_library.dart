@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipshelf/app/theme.dart';
+import 'package:clipshelf/app/widgets/keycap.dart';
 import 'package:clipshelf/features/clipboard/application/library_view_controller.dart';
 
 class EmptyLibrary extends ConsumerWidget {
@@ -18,14 +19,24 @@ class EmptyLibrary extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                section == 'Snippets'
-                    ? Icons.bookmark_add_outlined
-                    : Icons.content_paste_rounded,
-                size: 32,
-                color: context.shelf.accentText,
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: context.shelf.surfaceSelected,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  section == 'Snippets'
+                      ? Icons.bookmark_add_outlined
+                      : query.isNotEmpty || filter != 'All'
+                      ? Icons.search_off_rounded
+                      : Icons.content_paste_rounded,
+                  size: 28,
+                  color: context.shelf.accentText,
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Text(
                 query.isNotEmpty || filter != 'All'
                     ? 'Nothing matches just yet.'
@@ -35,8 +46,9 @@ class EmptyLibrary extends ConsumerWidget {
                     ? 'Your next copy starts here.'
                     : 'Keep the useful things here.',
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontSize: ShelfType.heading,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
                 ),
               ),
               const SizedBox(height: 8),
@@ -54,6 +66,20 @@ class EmptyLibrary extends ConsumerWidget {
                   color: context.shelf.textSecondary,
                 ),
               ),
+              if (section == 'All items' &&
+                  query.isEmpty &&
+                  filter == 'All') ...[
+                const SizedBox(height: 14),
+                const Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    KeyHint(keys: ['⌘', 'C'], label: 'Copy anywhere'),
+                    KeyHint(keys: ['⌥', '⌘', 'V'], label: 'Open ClipShelf'),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
