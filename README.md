@@ -114,7 +114,7 @@ On macOS 14 or later, turn on **Desktop Favorites widget** in ClipShelf's Prefer
 
 <br>
 
-It's built but needs an Apple-notarized build, so it isn't in the public download yet. See [iCloud sync](docs/ICLOUD.md).
+**Coming soon.** iCloud sync will keep your history, snippets and pinboards in step across your Apple devices. Until then, everything stays on this Mac. See [iCloud sync](docs/ICLOUD.md).
 
 </details>
 

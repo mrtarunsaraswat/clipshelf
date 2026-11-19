@@ -16,7 +16,7 @@ Requires macOS 12 or later on Apple Silicon or Intel.
 
 **Updating:** quit ClipShelf from its menu-bar menu, replace the app in Applications, and open it again. Because each unnotarized build has a new ad-hoc signature, macOS may treat it as a different app: if direct paste stops working, remove the old ClipShelf entry under Accessibility and allow it again.
 
-**iCloud sync** needs a Developer ID–signed build and is unavailable in these unnotarized releases. Everything else works, including the Desktop Favorites widget on macOS 14+. After an update you may need to remove and re-add the widget.
+**iCloud sync** is coming soon; Preferences shows it as *Coming soon* in these releases. Everything else works, including the Desktop Favorites widget on macOS 14+. After an update you may need to remove and re-add the widget.
 
 To build the release DMG yourself, run `./scripts/package_unnotarized.sh`; it runs the checks, builds the universal app, and writes `dist/ClipShelf-<version>.dmg` plus its checksum. `./scripts/release_macos.sh` is the notarized path for a Developer ID account.
 

@@ -1,6 +1,6 @@
 # iCloud sync
 
-iCloud sync is built but **disabled** in public builds until CloudKit is provisioned with a paid Apple Developer account.
+**Coming soon.** iCloud sync is built but **disabled** in public builds, where Preferences labels it *Coming soon*, until CloudKit is provisioned with a paid Apple Developer account.
 
 ## How sync works
 

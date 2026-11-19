@@ -75,9 +75,24 @@ class SettingsView extends ConsumerWidget {
                 Icons.cloud_outlined,
                 color: colors.kindLink,
               ),
-              title: const Text('Sync across your Macs'),
+              // Public builds have no CloudKit provisioning yet: show the
+              // feature as coming soon. Provisioned builds keep the real toggle.
+              title: syncConfigured
+                  ? const Text('Sync across your Macs')
+                  : Row(
+                      children: [
+                        const Flexible(
+                          child: Text(
+                            'Sync across your Apple devices',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _ComingSoonBadge(colors: colors),
+                      ],
+                    ),
               subtitle: Text(
-                syncConfigured ? syncStatus : 'Requires an iCloud-enabled signed build. Local features work now.',
+                syncConfigured ? syncStatus : 'Keep your history, snippets and pinboards in step on every Apple device with iCloud.',
                 style: subtitle,
               ),
               value: syncEnabled,
@@ -181,4 +196,26 @@ class SettingsView extends ConsumerWidget {
       ],
     );
   }
+}
+
+class _ComingSoonBadge extends StatelessWidget {
+  const _ComingSoonBadge({required this.colors});
+  final ShelfColors colors;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+    decoration: BoxDecoration(
+      color: colors.surfaceSelected,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      'Coming soon',
+      style: TextStyle(
+        fontSize: ShelfType.caption,
+        fontWeight: FontWeight.w600,
+        color: colors.accentText,
+      ),
+    ),
+  );
 }
