@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipshelf/app/theme.dart';
+import 'package:clipshelf/app/widgets/keycap.dart';
+import 'package:clipshelf/app/widgets/toolbar_button.dart';
 import 'package:clipshelf/features/clipboard/application/clipboard_controller.dart';
 import 'package:clipshelf/features/clipboard/application/library_view_controller.dart';
 import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart';
@@ -74,61 +76,107 @@ class ClipboardShelf extends ConsumerWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.layers_rounded, color: colors.accentText, size: 23),
+                Icon(Icons.layers_rounded, color: colors.accentText, size: 22),
                 const SizedBox(width: 8),
                 const Text(
                   'ClipShelf',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: ShelfType.title,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
                 ),
-                const SizedBox(width: 24),
+                if (paused) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.warningSurface,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Paused',
+                      style: TextStyle(
+                        fontSize: ShelfType.caption,
+                        fontWeight: FontWeight.w600,
+                        color: colors.warningText,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 20),
                 Expanded(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        tab(
-                          'All items',
-                          'Clipboard',
-                          Icons.history_rounded,
-                          null,
-                        ),
-                        const SizedBox(width: 6),
-                        tab(
-                          'Snippets',
-                          'Snippets',
-                          Icons.bookmark_outline,
-                          null,
-                        ),
-                        for (final board in boards)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: DragTarget<String>(
-                              onAcceptWithDetails: (details) =>
-                                  actions.pin(details.data, board.id),
-                              builder: (context, candidates, rejected) =>
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: candidates.isNotEmpty
-                                          ? Border.all(
-                                              color: colors.accentText,
-                                              width: 2,
-                                            )
-                                          : null,
-                                    ),
-                                    child: tab(
-                                      board.id,
-                                      board.name,
-                                      Icons.circle,
-                                      boardColor(colors, board.color),
-                                    ),
-                                  ),
-                            ),
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceHover,
+                            borderRadius: BorderRadius.circular(10),
                           ),
+                          child: Row(
+                            children: [
+                              tab(
+                                'All items',
+                                'Clipboard',
+                                Icons.history_rounded,
+                                null,
+                              ),
+                              const SizedBox(width: 2),
+                              tab(
+                                'Snippets',
+                                'Snippets',
+                                Icons.bookmark_outline,
+                                null,
+                              ),
+                              for (final board in boards)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 2),
+                                  child: DragTarget<String>(
+                                    onAcceptWithDetails: (details) =>
+                                        actions.pin(details.data, board.id),
+                                    builder: (context, candidates, rejected) =>
+                                        AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 150,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: candidates.isNotEmpty
+                                                ? colors.surfaceSelected
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: candidates.isNotEmpty
+                                                ? Border.all(
+                                                    color: colors.accentText,
+                                                    width: 2,
+                                                  )
+                                                : null,
+                                          ),
+                                          child: tab(
+                                            board.id,
+                                            board.name,
+                                            Icons.circle,
+                                            boardColor(colors, board.color),
+                                          ),
+                                        ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         IconButton(
                           tooltip: 'New pinboard',
+                          style: toolbarButtonStyle(colors),
                           onPressed: actions.showPinboardDialog,
-                          icon: const Icon(Icons.add, size: 20),
+                          icon: const Icon(Icons.add, size: 18),
                         ),
                       ],
                     ),
@@ -136,21 +184,24 @@ class ClipboardShelf extends ConsumerWidget {
                 ),
                 IconButton(
                   tooltip: paused ? 'Resume capture' : 'Pause capture',
+                  style: toolbarButtonStyle(colors),
                   onPressed: () => actions.toggleCapture(),
                   icon: Icon(
                     paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                    size: 19,
+                    size: 18,
                   ),
                 ),
                 IconButton(
                   tooltip: 'Preferences',
+                  style: toolbarButtonStyle(colors),
                   onPressed: actions.showPreferences,
-                  icon: const Icon(Icons.tune, size: 19),
+                  icon: const Icon(Icons.tune, size: 18),
                 ),
                 IconButton(
                   tooltip: 'Hide shelf',
+                  style: toolbarButtonStyle(colors),
                   onPressed: () => actions.hide(),
-                  icon: const Icon(Icons.keyboard_arrow_down, size: 22),
+                  icon: const Icon(Icons.keyboard_arrow_down, size: 20),
                 ),
               ],
             ),
@@ -159,7 +210,7 @@ class ClipboardShelf extends ConsumerWidget {
               children: [
                 Expanded(
                   child: SizedBox(
-                    height: 38,
+                    height: 36,
                     child: TextField(
                       controller: search,
                       focusNode: searchFocus,
@@ -169,12 +220,19 @@ class ClipboardShelf extends ConsumerWidget {
                       },
                       decoration: InputDecoration(
                         hintText: 'Search your clipboard…',
-                        hintStyle: const TextStyle(fontSize: 12),
+                        hintStyle: TextStyle(
+                          fontSize: ShelfType.body,
+                          color: colors.textTertiary,
+                        ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,
                         ),
-                        prefixIcon: const Icon(Icons.search, size: 18),
+                        prefixIcon: const Icon(Icons.search, size: 17),
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 20,
+                        ),
                         suffixIcon: query.isNotEmpty
                             ? IconButton(
                                 onPressed: () {
@@ -183,7 +241,10 @@ class ClipboardShelf extends ConsumerWidget {
                                 },
                                 icon: const Icon(Icons.close, size: 15),
                               )
-                            : null,
+                            : const Padding(
+                                padding: EdgeInsets.only(right: 10),
+                                child: Keycap('⌘F', dense: true),
+                              ),
                       ),
                     ),
                   ),
@@ -207,12 +268,12 @@ class ClipboardShelf extends ConsumerWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 10,
+                      vertical: 9,
                     ),
                     decoration: BoxDecoration(
                       color: colors.surface,
                       border: Border.all(color: colors.stroke),
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
@@ -220,19 +281,33 @@ class ClipboardShelf extends ConsumerWidget {
                         const SizedBox(width: 6),
                         Text(
                           filter == 'All' ? 'All formats' : filter,
-                          style: const TextStyle(fontSize: 11),
+                          style: const TextStyle(fontSize: ShelfType.meta),
                         ),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.expand_more, size: 15),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                TextButton.icon(
+                FilledButton.tonalIcon(
                   onPressed: () => actions.showSnippet(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.surfaceSelected,
+                    foregroundColor: colors.accentText,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    minimumSize: const Size(0, 36),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text(
                     'New snippet',
-                    style: TextStyle(fontSize: 11),
+                    style: TextStyle(
+                      fontSize: ShelfType.meta,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -261,7 +336,8 @@ class ClipboardShelf extends ConsumerWidget {
                       child: ListView.separated(
                         controller: listScroll,
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.fromLTRB(2, 2, 2, 16),
+                        clipBehavior: Clip.none,
                         itemCount: items.length,
                         separatorBuilder: (_, index) =>
                             const SizedBox(width: 14),
@@ -296,18 +372,31 @@ class ClipboardShelf extends ConsumerWidget {
                     syncEnabled ? syncStatus : 'On this Mac · ⌥⌘V to open',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 10, color: colors.textTertiary),
+                    style: TextStyle(
+                      fontSize: ShelfType.caption,
+                      color: colors.textTertiary,
+                    ),
                   ),
                 ),
                 Text(
                   '${items.length} items',
-                  style: TextStyle(fontSize: 10, color: colors.textTertiary),
+                  style: TextStyle(
+                    fontSize: ShelfType.caption,
+                    color: colors.textTertiary,
+                  ),
                 ),
-                const SizedBox(width: 20),
-                Text(
-                  '← → Navigate   ↵ Use   ⌘1–9 Quick use   esc Hide',
-                  style: TextStyle(fontSize: 10, color: colors.textTertiary),
-                ),
+                // Hints need ~430 pt; the window can be narrower while it
+                // switches between shelf and panel layouts.
+                if (MediaQuery.sizeOf(context).width >= 760) ...[
+                  const SizedBox(width: 18),
+                  const KeyHint(keys: ['←', '→'], label: 'Navigate'),
+                  const SizedBox(width: 12),
+                  const KeyHint(keys: ['return'], label: 'Use'),
+                  const SizedBox(width: 12),
+                  const KeyHint(keys: ['⌘1–9'], label: 'Quick use'),
+                  const SizedBox(width: 12),
+                  const KeyHint(keys: ['esc'], label: 'Hide'),
+                ],
               ],
             ),
           ],
