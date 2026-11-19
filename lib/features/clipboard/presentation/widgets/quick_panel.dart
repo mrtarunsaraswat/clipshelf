@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipshelf/app/theme.dart';
+import 'package:clipshelf/app/widgets/keycap.dart';
+import 'package:clipshelf/app/widgets/toolbar_button.dart';
 import 'package:clipshelf/features/clipboard/application/clipboard_controller.dart';
 import 'package:clipshelf/features/clipboard/application/library_view_controller.dart';
 import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart';
@@ -74,8 +76,9 @@ class QuickPanel extends ConsumerWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: floating ? 14 : 17,
+                            fontSize: floating ? 14 : ShelfType.title,
                             fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
                           ),
                         ),
                       ),
@@ -84,6 +87,7 @@ class QuickPanel extends ConsumerWidget {
                 ),
                 if (floating)
                   IconButton(
+                    style: toolbarButtonStyle(colors),
                     tooltip: snapshot.floatingPinned
                         ? 'Keep visible: on'
                         : 'Keep visible: off',
@@ -98,17 +102,20 @@ class QuickPanel extends ConsumerWidget {
                     ),
                   ),
                 IconButton(
+                  style: toolbarButtonStyle(colors),
                   tooltip: 'Open full shelf',
                   onPressed: () => actions.showShelf(),
-                  icon: const Icon(Icons.view_carousel_outlined, size: 19),
+                  icon: const Icon(Icons.view_carousel_outlined, size: 18),
                 ),
                 IconButton(
+                  style: toolbarButtonStyle(colors),
                   tooltip: 'Preferences',
                   onPressed: actions.showPreferences,
-                  icon: const Icon(Icons.tune, size: 19),
+                  icon: const Icon(Icons.tune, size: 18),
                 ),
                 if (floating)
                   IconButton(
+                    style: toolbarButtonStyle(colors),
                     tooltip: 'Close panel',
                     onPressed: actions.hide,
                     icon: const Icon(Icons.close, size: 18),
@@ -223,7 +230,10 @@ class QuickPanel extends ConsumerWidget {
                 const Spacer(),
                 Text(
                   '${items.length} items',
-                  style: TextStyle(fontSize: 10, color: colors.textTertiary),
+                  style: TextStyle(
+                    fontSize: ShelfType.caption,
+                    color: colors.textTertiary,
+                  ),
                 ),
               ],
             ),
@@ -235,10 +245,16 @@ class QuickPanel extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
                 decoration: BoxDecoration(
                   color: colors.warningSurface,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(ShelfRadius.sm + 2),
                 ),
                 child: Row(
                   children: [
+                    Icon(
+                      Icons.touch_app_outlined,
+                      size: 16,
+                      color: colors.warningText,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Enable Accessibility for one-click paste.\nUntil then, items are copied for manual paste.',
@@ -282,9 +298,12 @@ class QuickPanel extends ConsumerWidget {
                     controller: listScroll,
                     child: ListView.separated(
                       controller: listScroll,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       itemCount: items.length,
-                      separatorBuilder: (_, index) =>
-                          Divider(height: 1, indent: 62, color: colors.stroke),
+                      separatorBuilder: (_, index) => const SizedBox(height: 2),
                       itemBuilder: (context, index) => QuickItemRow(
                         item: items[index],
                         index: index,
@@ -313,13 +332,15 @@ class QuickPanel extends ConsumerWidget {
                     floating && snapshot.floatingPinned
                         ? 'Keep visible · Click to paste'
                         : 'Click an item to paste',
-                    style: TextStyle(fontSize: 10, color: colors.textTertiary),
+                    style: TextStyle(
+                      fontSize: ShelfType.caption,
+                      color: colors.textTertiary,
+                    ),
                   ),
                 ),
-                Text(
-                  '⌘1–9  ·  esc',
-                  style: TextStyle(fontSize: 10, color: colors.textTertiary),
-                ),
+                const KeyHint(keys: ['⌘1–9'], label: ''),
+                const SizedBox(width: 6),
+                const KeyHint(keys: ['esc'], label: ''),
               ],
             ),
           ),
