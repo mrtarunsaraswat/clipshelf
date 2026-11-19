@@ -23,7 +23,7 @@ class EmptyLibrary extends ConsumerWidget {
                     ? Icons.bookmark_add_outlined
                     : Icons.content_paste_rounded,
                 size: 32,
-                color: accent,
+                color: context.shelf.accentText,
               ),
               const SizedBox(height: 12),
               Text(
@@ -49,7 +49,10 @@ class EmptyLibrary extends ConsumerWidget {
                     ? 'Save text you use again and again.'
                     : 'Drag a card here or use its Pin action.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.shelf.textSecondary,
+                ),
               ),
             ],
           ),

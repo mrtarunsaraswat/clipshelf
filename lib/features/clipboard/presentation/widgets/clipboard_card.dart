@@ -24,7 +24,9 @@ class ClipboardCard extends StatelessWidget {
   final VoidCallback onSelected;
   @override
   Widget build(BuildContext context) {
-    final color = cardColor(item, boards);
+    final colors = context.shelf;
+    final color = cardColor(item, boards, colors);
+    final onColor = ShelfColors.onColor(color);
     final content = Material(
       color: Colors.transparent,
       child: InkWell(
@@ -51,7 +53,7 @@ class ClipboardCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.5,
-                        color: const Color(0xFF344454),
+                        color: colors.textPrimary,
                         fontFamily: item.text.contains('{')
                             ? 'monospace'
                             : null,
@@ -72,16 +74,16 @@ class ClipboardCard extends StatelessWidget {
             0,
             0,
           ),
-          items: itemContextMenu(item, boards),
+          items: itemContextMenu(item, boards, colors),
         );
         if (value != null) actions.handleItem(value, item);
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colors.surfaceRaised,
           borderRadius: BorderRadius.circular(13),
           border: Border.all(
-            color: active ? accent : const Color(0xFFDDE1E6),
+            color: active ? colors.accent : colors.stroke,
             width: active ? 2 : 1,
           ),
         ),
@@ -97,7 +99,7 @@ class ClipboardCard extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 14, right: 3),
                   child: Row(
                     children: [
-                      Icon(clipIcon(item), size: 17, color: Colors.white),
+                      Icon(clipIcon(item), size: 17, color: onColor),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -110,8 +112,8 @@ class ClipboardCard extends StatelessWidget {
                               : item.kind == 'file'
                               ? 'File'
                               : 'Content',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: onColor,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -120,12 +122,9 @@ class ClipboardCard extends StatelessWidget {
                       PopupMenuButton<String>(
                         tooltip: 'Item actions',
                         onSelected: (value) => actions.handleItem(value, item),
-                        itemBuilder: (_) => itemContextMenu(item, boards),
-                        icon: const Icon(
-                          Icons.more_horiz,
-                          color: Colors.white,
-                          size: 18,
-                        ),
+                        itemBuilder: (_) =>
+                            itemContextMenu(item, boards, colors),
+                        icon: Icon(Icons.more_horiz, color: onColor, size: 18),
                       ),
                     ],
                   ),
@@ -147,7 +146,7 @@ class ClipboardCard extends StatelessWidget {
                     child: Text(
                       item.title,
                       maxLines: 3,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: onColor),
                     ),
                   ),
                 ),
@@ -155,7 +154,7 @@ class ClipboardCard extends StatelessWidget {
                 child: content,
               ),
             ),
-            const Divider(height: 1, color: Color(0xFFEDF0F3)),
+            Divider(height: 1, color: colors.stroke),
             Padding(
               padding: const EdgeInsets.fromLTRB(13, 8, 11, 8),
               child: Row(
@@ -165,13 +164,19 @@ class ClipboardCard extends StatelessWidget {
                       '${item.source} · ${formatClipAge(item.date)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: colors.textTertiary,
+                      ),
                     ),
                   ),
                   if (index < 9)
                     Text(
                       '⌘${index + 1}',
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: colors.textTertiary,
+                      ),
                     ),
                 ],
               ),

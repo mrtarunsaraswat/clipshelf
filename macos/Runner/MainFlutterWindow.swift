@@ -65,6 +65,10 @@ class MainFlutterWindow: NSPanel {
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
   private var bridge: ClipboardBridge?
+  /// The Flutter view sits inside a frosted NSVisualEffectView, so it is not the
+  /// window's contentViewController; keep it for first-responder handling.
+  private(set) var flutterView: NSView?
+  private var flutterController: FlutterViewController?
   func openClipShelfURL(_ url: URL) {
     guard url.scheme == "clipshelf", url.host == "open" else { return }
     let view = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "view" }?.value
@@ -72,7 +76,22 @@ class MainFlutterWindow: NSPanel {
   }
   override func awakeFromNib() {
     let controller = FlutterViewController()
-    contentViewController = controller
+    // Native glass: a behind-window blur shows through Flutter's transparent canvas.
+    // AppKit swaps in an opaque material by itself when Reduce Transparency is on.
+    controller.backgroundColor = .clear
+    isOpaque = false
+    backgroundColor = .clear
+    hasShadow = true
+    let glass = NSVisualEffectView()
+    glass.material = .popover
+    glass.blendingMode = .behindWindow
+    glass.state = .active  // a non-activating panel must not fall back to the inactive look
+    controller.view.frame = glass.bounds
+    controller.view.autoresizingMask = [.width, .height]
+    glass.addSubview(controller.view)
+    contentView = glass
+    flutterView = controller.view
+    flutterController = controller
     setContentSize(NSSize(width: 1120, height: 430))
     minSize = NSSize(width: 880, height: 360)
     titleVisibility = .hidden
@@ -219,6 +238,8 @@ final class ClipboardBridge: NSObject {
     NotificationCenter.default.addObserver(self, selector: #selector(panelFocusMayHaveChanged), name: NSApplication.didResignActiveNotification, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(saveFloatingFrame), name: NSWindow.didMoveNotification, object: window)
     NotificationCenter.default.addObserver(self, selector: #selector(saveFloatingFrame), name: NSWindow.didEndLiveResizeNotification, object: window)
+    NotificationCenter.default.addObserver(self, selector: #selector(appearanceSettingsChanged), name: NSColor.systemColorsDidChangeNotification, object: nil)
+    NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appearanceSettingsChanged), name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
     updateWidget()
     positionShelf()
     // Nib-driven startup shows this window without going through presentPanel().
@@ -350,7 +371,7 @@ final class ClipboardBridge: NSObject {
     panelGeneration += 1
     refreshAccessibility()
     window?.makeKeyAndOrderFront(nil)
-    if let window = window { window.makeFirstResponder(window.contentViewController?.view) }
+    if let window = window { window.makeFirstResponder((window as? MainFlutterWindow)?.flutterView ?? window.contentView) }
     startOutsideClickMonitoring()
   }
   func rememberTarget() {
@@ -530,9 +551,18 @@ final class ClipboardBridge: NSObject {
        "floatingPinned": floating.pinned, "widgetConfigured": widgetStore.available,
        "widgetSharing": widgetSharing,
        "screenshotsEnabled": screenshotsEnabled, "screenshotsFolder": screenshotFolderPath,
-       "screenshotsStatus": screenshotStatus, "screenshotsWatching": screenshotWatching]
+       "screenshotsStatus": screenshotStatus, "screenshotsWatching": screenshotWatching,
+       "accentColor": Self.accentARGB(), "reduceTransparency": NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency]
   }
   func publish() { channel.invokeMethod("changed", arguments: state()) }
+  /// The user's macOS accent colour as 0xAARRGGBB, for the Flutter theme.
+  static func accentARGB() -> Int {
+    guard let color = NSColor.controlAccentColor.usingColorSpace(.sRGB) else { return 0xFF167D70 }
+    func channel(_ value: CGFloat) -> Int { Int((value * 255).rounded()) & 0xFF }
+    return channel(color.alphaComponent) << 24 | channel(color.redComponent) << 16
+      | channel(color.greenComponent) << 8 | channel(color.blueComponent)
+  }
+  @objc func appearanceSettingsChanged() { publish() }
   func capture() {
     let board = pasteboard
     guard change != board.changeCount else { return }

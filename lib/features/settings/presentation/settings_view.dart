@@ -49,12 +49,12 @@ class SettingsView extends ConsumerWidget {
               : null,
         ),
         const Divider(height: 32),
-        const Text(
+        Text(
           'ICLOUD',
           style: TextStyle(
             fontSize: 11,
             letterSpacing: 1.5,
-            color: Colors.grey,
+            color: context.shelf.textSecondary,
           ),
         ),
         SwitchListTile(
@@ -81,12 +81,12 @@ class SettingsView extends ConsumerWidget {
             ),
           ),
         const Divider(height: 32),
-        const Text(
+        Text(
           'WORKFLOW',
           style: TextStyle(
             fontSize: 11,
             letterSpacing: 1.5,
-            color: Colors.grey,
+            color: context.shelf.textSecondary,
           ),
         ),
         const SizedBox(height: 12),
@@ -107,9 +107,9 @@ class SettingsView extends ConsumerWidget {
             style: TextStyle(fontSize: 12),
           ),
           trailing: accessibility
-              ? const Icon(
+              ? Icon(
                   Icons.check_circle,
-                  color: accent,
+                  color: context.shelf.accentText,
                   semanticLabel: 'Accessibility enabled',
                 )
               : OutlinedButton(
@@ -122,12 +122,12 @@ class SettingsView extends ConsumerWidget {
         const Divider(height: 40),
         ScreenshotSettingsSection(actions: actions),
         const Divider(height: 40),
-        const Text(
+        Text(
           'LOCAL HISTORY',
           style: TextStyle(
             fontSize: 11,
             letterSpacing: 1.5,
-            color: Colors.grey,
+            color: context.shelf.textSecondary,
           ),
         ),
         const SizedBox(height: 16),
@@ -136,9 +136,13 @@ class SettingsView extends ConsumerWidget {
           style: TextStyle(fontSize: 13, height: 1.7),
         ),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Local history is saved without app-level encryption. With sync enabled, items also go to your private iCloud database. Concealed and transient copies are skipped; apps that do not mark secrets may still have them captured. Pause before copying sensitive material.',
-          style: TextStyle(fontSize: 12, height: 1.7, color: Colors.grey),
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.7,
+            color: context.shelf.textSecondary,
+          ),
         ),
         const SizedBox(height: 18),
         Align(
@@ -150,9 +154,9 @@ class SettingsView extends ConsumerWidget {
           ),
         ),
         const Divider(height: 40),
-        const Text(
+        Text(
           'ClipShelf 1.0.0 · ⌥⌘V to open · ⌘N for a new snippet',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: 12, color: context.shelf.textSecondary),
         ),
       ],
     );

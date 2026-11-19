@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/tokens.dart';
 import '../../domain/clipboard_item.dart';
 import '../../domain/pinboard.dart';
 import '../clipboard_style.dart';
@@ -7,6 +8,7 @@ import '../clipboard_style.dart';
 List<PopupMenuEntry<String>> itemContextMenu(
   ClipItem item,
   List<Pinboard> boards,
+  ShelfColors colors,
 ) => [
   const PopupMenuItem(value: 'paste', child: Text('Paste')),
   const PopupMenuItem(value: 'copy', child: Text('Copy to clipboard')),
@@ -21,7 +23,7 @@ List<PopupMenuEntry<String>> itemContextMenu(
       value: 'pin:${board.id}',
       child: Row(
         children: [
-          Icon(Icons.circle, size: 10, color: boardColor(board.color)),
+          Icon(Icons.circle, size: 10, color: boardColor(colors, board.color)),
           const SizedBox(width: 10),
           Text('Pin to ${board.name}'),
         ],
@@ -30,5 +32,8 @@ List<PopupMenuEntry<String>> itemContextMenu(
   if (item.boardID.isNotEmpty)
     const PopupMenuItem(value: 'unpin', child: Text('Remove from pinboard')),
   const PopupMenuDivider(),
-  const PopupMenuItem(value: 'delete', child: Text('Delete item')),
+  PopupMenuItem(
+    value: 'delete',
+    child: Text('Delete item', style: TextStyle(color: colors.danger)),
+  ),
 ];
