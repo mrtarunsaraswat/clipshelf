@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../domain/pinboard_draft.dart';
+import '../../../app/tokens.dart';
 import '../../clipboard/presentation/clipboard_style.dart';
 
 class PinboardDialog extends StatefulWidget {
@@ -47,13 +48,13 @@ class _PinboardDialogState extends State<PinboardDialog> {
             Wrap(
               spacing: 10,
               children: [
-                for (var i = 0; i < boardColors.length; i++)
+                for (var i = 0; i < boardColorCount; i++)
                   InkWell(
                     onTap: () => setState(() => _color = i),
                     borderRadius: BorderRadius.circular(18),
                     child: CircleAvatar(
                       radius: 16,
-                      backgroundColor: boardColors[i],
+                      backgroundColor: boardColor(context.shelf, i),
                       child: _color == i
                           ? const Icon(
                               Icons.check,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clipshelf/app/tokens.dart';
 import 'package:clipshelf/features/clipboard/domain/clipboard_item.dart';
 import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart';
 
@@ -10,8 +11,8 @@ class ItemPreview extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: const Color(0xFFE4EAE4)),
+      color: context.shelf.surfaceRaised,
+      border: Border.all(color: context.shelf.stroke),
       borderRadius: BorderRadius.circular(14),
     ),
     child: Column(
@@ -24,10 +25,10 @@ class ItemPreview extends StatelessWidget {
                 item.snippet
                     ? 'SAVED SNIPPET'
                     : '${item.kind.toUpperCase()} PREVIEW',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 1.3,
-                  color: Colors.grey,
+                  color: context.shelf.textTertiary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -78,15 +79,18 @@ class ItemPreview extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   '${item.source} · ${(item.size / 1024).toStringAsFixed(1)} KB',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: context.shelf.textTertiary,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   item.formats.join('\n'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     height: 1.5,
-                    color: Colors.grey,
+                    color: context.shelf.textTertiary,
                   ),
                 ),
                 if (item.kind == 'file')

@@ -46,8 +46,9 @@ class QuickPanel extends ConsumerWidget {
         : section == 'Snippets'
         ? 'Snippets'
         : boards.where((b) => b.id == section).firstOrNull?.name ?? 'History';
+    final colors = context.shelf;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colors.canvas,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -55,7 +56,7 @@ class QuickPanel extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
             child: Row(
               children: [
-                const Icon(Icons.layers_rounded, color: accent, size: 20),
+                Icon(Icons.layers_rounded, color: colors.accentText, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Listener(
@@ -93,7 +94,7 @@ class QuickPanel extends ConsumerWidget {
                           ? Icons.push_pin
                           : Icons.push_pin_outlined,
                       size: 18,
-                      color: snapshot.floatingPinned ? accent : null,
+                      color: snapshot.floatingPinned ? colors.accentText : null,
                     ),
                   ),
                 IconButton(
@@ -222,7 +223,7 @@ class QuickPanel extends ConsumerWidget {
                 const Spacer(),
                 Text(
                   '${items.length} items',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  style: TextStyle(fontSize: 10, color: colors.textTertiary),
                 ),
               ],
             ),
@@ -233,18 +234,18 @@ class QuickPanel extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF5E3),
+                  color: colors.warningSurface,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Enable Accessibility for one-click paste.\nUntil then, items are copied for manual paste.',
                         style: TextStyle(
                           fontSize: 10,
                           height: 1.5,
-                          color: Color(0xFF765824),
+                          color: colors.warningText,
                         ),
                       ),
                     ),
@@ -268,10 +269,10 @@ class QuickPanel extends ConsumerWidget {
                 paused ? 'Capture paused' : warning,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, color: Colors.brown),
+                style: TextStyle(fontSize: 10, color: colors.warningText),
               ),
             ),
-          const Divider(height: 1, color: Color(0xFFEAEDEF)),
+          Divider(height: 1, color: colors.stroke),
           Expanded(
             child: loading
                 ? const Center(child: CircularProgressIndicator())
@@ -282,11 +283,8 @@ class QuickPanel extends ConsumerWidget {
                     child: ListView.separated(
                       controller: listScroll,
                       itemCount: items.length,
-                      separatorBuilder: (_, index) => const Divider(
-                        height: 1,
-                        indent: 62,
-                        color: Color(0xFFF0F1F3),
-                      ),
+                      separatorBuilder: (_, index) =>
+                          Divider(height: 1, indent: 62, color: colors.stroke),
                       itemBuilder: (context, index) => QuickItemRow(
                         item: items[index],
                         index: index,
@@ -299,15 +297,15 @@ class QuickPanel extends ConsumerWidget {
                     ),
                   ),
           ),
-          const Divider(height: 1, color: Color(0xFFEAEDEF)),
+          Divider(height: 1, color: colors.stroke),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.touch_app_outlined,
                   size: 13,
-                  color: Colors.grey,
+                  color: colors.textTertiary,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -315,12 +313,12 @@ class QuickPanel extends ConsumerWidget {
                     floating && snapshot.floatingPinned
                         ? 'Keep visible · Click to paste'
                         : 'Click an item to paste',
-                    style: TextStyle(fontSize: 10, color: Colors.grey),
+                    style: TextStyle(fontSize: 10, color: colors.textTertiary),
                   ),
                 ),
-                const Text(
+                Text(
                   '⌘1–9  ·  esc',
-                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                  style: TextStyle(fontSize: 10, color: colors.textTertiary),
                 ),
               ],
             ),

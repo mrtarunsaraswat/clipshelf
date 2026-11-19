@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:clipshelf/app/app.dart';
 import 'package:clipshelf/features/clipboard/data/method_channel_clipboard_repository.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,17 +74,52 @@ void main() {
                 }
               : null,
         );
-    await tester.pumpWidget(const ProviderScope(child: ClipShelf()));
-    await tester.pumpAndSettle();
-    await expectLater(
-      find.byType(ClipShelf),
-      matchesGoldenFile(
-        floatingPreview
-            ? '../floating-preview.png'
-            : quickPreview
-            ? '../menu-bar-preview.png'
-            : '../preview.png',
+    const dark = bool.fromEnvironment('DARK_PREVIEW');
+    // The real window is a native frosted NSVisualEffectView. Approximate it with
+    // a wallpaper gradient under a translucent material so the glass reads.
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: const ValueKey('preview'),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF6A8CAF),
+                      Color(0xFF9C7FB8),
+                      Color(0xFFE0A07A),
+                    ],
+                  ),
+                ),
+              ),
+              ColoredBox(
+                color: dark ? const Color(0xD91E1E21) : const Color(0xD9F4F4F7),
+              ),
+              const ProviderScope(
+                child: ClipShelf(
+                  themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+    await tester.pumpAndSettle();
+    final name = floatingPreview
+        ? 'floating-preview'
+        : quickPreview
+        ? 'menu-bar-preview'
+        : 'preview';
+    await expectLater(
+      find.byKey(const ValueKey('preview')),
+      matchesGoldenFile('../$name${dark ? '-dark' : ''}.png'),
     );
   });
 }

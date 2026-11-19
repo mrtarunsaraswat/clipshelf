@@ -53,8 +53,9 @@ class ClipboardShelf extends ConsumerWidget {
           section: section,
           onSelected: chooseCollection,
         );
+    final colors = context.shelf;
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F3F5),
+      backgroundColor: colors.canvas,
       body: Padding(
         padding: const EdgeInsets.fromLTRB(22, 14, 22, 12),
         child: Column(
@@ -65,7 +66,7 @@ class ClipboardShelf extends ConsumerWidget {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFCCD0D5),
+                  color: colors.strokeStrong,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -73,7 +74,7 @@ class ClipboardShelf extends ConsumerWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.layers_rounded, color: accent, size: 23),
+                Icon(Icons.layers_rounded, color: colors.accentText, size: 23),
                 const SizedBox(width: 8),
                 const Text(
                   'ClipShelf',
@@ -109,14 +110,17 @@ class ClipboardShelf extends ConsumerWidget {
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(10),
                                       border: candidates.isNotEmpty
-                                          ? Border.all(color: accent, width: 2)
+                                          ? Border.all(
+                                              color: colors.accentText,
+                                              width: 2,
+                                            )
                                           : null,
                                     ),
                                     child: tab(
                                       board.id,
                                       board.name,
                                       Icons.circle,
-                                      boardColor(board.color),
+                                      boardColor(colors, board.color),
                                     ),
                                   ),
                             ),
@@ -206,7 +210,8 @@ class ClipboardShelf extends ConsumerWidget {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: colors.surface,
+                      border: Border.all(color: colors.stroke),
                       borderRadius: BorderRadius.circular(9),
                     ),
                     child: Row(
@@ -241,7 +246,7 @@ class ClipboardShelf extends ConsumerWidget {
                       : warning,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Colors.brown),
+                  style: TextStyle(fontSize: 11, color: colors.warningText),
                 ),
               ),
             const SizedBox(height: 16),
@@ -283,7 +288,7 @@ class ClipboardShelf extends ConsumerWidget {
                 Icon(
                   syncEnabled ? Icons.cloud_done_outlined : Icons.lock_outline,
                   size: 12,
-                  color: Colors.grey,
+                  color: colors.textTertiary,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -291,17 +296,17 @@ class ClipboardShelf extends ConsumerWidget {
                     syncEnabled ? syncStatus : 'On this Mac · ⌥⌘V to open',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    style: TextStyle(fontSize: 10, color: colors.textTertiary),
                   ),
                 ),
                 Text(
                   '${items.length} items',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  style: TextStyle(fontSize: 10, color: colors.textTertiary),
                 ),
                 const SizedBox(width: 20),
-                const Text(
+                Text(
                   '← → Navigate   ↵ Use   ⌘1–9 Quick use   esc Hide',
-                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                  style: TextStyle(fontSize: 10, color: colors.textTertiary),
                 ),
               ],
             ),

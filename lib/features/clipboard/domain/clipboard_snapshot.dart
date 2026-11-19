@@ -45,6 +45,8 @@ class ClipboardSnapshot {
     this.warning = '',
     this.presentation = PanelPresentation.shelf,
     this.sync = const SyncStatus(),
+    this.accentColor,
+    this.reduceTransparency = false,
   }) : clips = List.unmodifiable(clips),
        boards = List.unmodifiable(boards);
 
@@ -69,6 +71,8 @@ class ClipboardSnapshot {
           configured: data['syncConfigured'] == true,
           message: data['syncStatus'] as String? ?? 'iCloud sync is off',
         ),
+        accentColor: data['accentColor'] as int?,
+        reduceTransparency: data['reduceTransparency'] == true,
       );
   final List<ClipItem> clips;
   final List<Pinboard> boards;
@@ -82,6 +86,12 @@ class ClipboardSnapshot {
   final SyncStatus sync;
   final ScreenshotSettings screenshots;
 
+  /// macOS accent colour as 0xAARRGGBB; null until the native side reports it.
+  final int? accentColor;
+
+  /// macOS Accessibility → Display → Reduce transparency.
+  final bool reduceTransparency;
+
   ClipboardSnapshot withWarning(String value) => ClipboardSnapshot(
     screenshots: screenshots,
     floatingPinned: floatingPinned,
@@ -94,6 +104,8 @@ class ClipboardSnapshot {
     presentation: presentation,
     sync: sync,
     warning: value,
+    accentColor: accentColor,
+    reduceTransparency: reduceTransparency,
   );
 }
 
