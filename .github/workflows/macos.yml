@@ -1,0 +1,113 @@
+name: macOS build
+
+# Every push / pull request: analyze, test, build the universal app, run the
+# native tests, and upload ClipShelf.app as a downloadable ZIP.
+# Pushing a tag like v1.0.1: the same checks plus an unnotarized DMG attached
+# to a new GitHub release. The tag must match the version in pubspec.yaml.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  FLUTTER_VERSION: '3.50.0'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Show toolchain
+        run: |
+          flutter --version
+          xcodebuild -version
+
+      - name: Read app version
+        id: version
+        run: |
+          version=$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "ClipShelf $version"
+
+      - name: Check tag matches pubspec version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "v${{ steps.version.outputs.version }}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match pubspec.yaml version ${{ steps.version.outputs.version }}"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Flutter tests
+        run: flutter test
+
+      - name: Build app
+        run: ./scripts/build_macos.sh
+
+      - name: Native tests
+        run: ./scripts/test_native.sh
+
+      - name: Zip app
+        run: |
+          mkdir -p dist
+          ditto -c -k --keepParent \
+            build/macos/Build/Products/Release/ClipShelf.app \
+            "dist/ClipShelf-${{ steps.version.outputs.version }}-${GITHUB_SHA::7}.zip"
+
+      - name: Upload app ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClipShelf-${{ steps.version.outputs.version }}-${{ github.sha }}
+          path: dist/*.zip
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Build unnotarized DMG
+        run: ./scripts/package_unnotarized.sh
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/ClipShelf-*.dmg dist/ClipShelf-*.dmg.sha256 \
+            --title "ClipShelf ${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            --notes "Unnotarized build: on first launch use System Settings → Privacy & Security → Open Anyway. See the README's Install section."
