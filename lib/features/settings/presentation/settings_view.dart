@@ -41,7 +41,7 @@ class SettingsView extends ConsumerWidget {
           subtitle: Text(
             snapshot.widgetConfigured
                 ? 'Share saved text snippets and pinboards with the widget. Add ClipShelf from Edit Widgets; choose a collection in Edit Widget. Previews are off by default.'
-                : 'Available after App Group signing is configured. The floating panel works now.',
+                : 'ClipShelf cannot reach its Favorites folder in Application Support. Check that folder\'s permissions. The floating panel works now.',
           ),
           value: snapshot.widgetSharing,
           onChanged: snapshot.widgetConfigured

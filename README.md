@@ -24,6 +24,7 @@ A fast, private clipboard manager that lives in your Mac's menu bar.
 - **Built for the keyboard.** <kbd>⌥</kbd><kbd>⌘</kbd><kbd>V</kbd> to open, <kbd>⌘</kbd><kbd>1</kbd>–<kbd>9</kbd> to paste.
 - **Keep what matters.** Save snippets and sort clips into colored pinboards.
 - **Screenshots included.** Screenshots you take are copied and saved to your history.
+- **Favorites on your desktop.** A widget puts your snippets one click away (macOS 14+).
 - **Private by design.** Everything stays on your Mac. No account, no server, no tracking.
 
 ## 🖼️ A look inside
@@ -100,11 +101,20 @@ ClipShelf skips copies that password managers mark as concealed. Some apps don't
 </details>
 
 <details>
-<summary><b>Is there iCloud sync or a desktop widget?</b></summary>
+<summary><b>How do I add the desktop widget?</b></summary>
 
 <br>
 
-Both are built but need an Apple-notarized build, so they aren't in the public download yet. See [iCloud sync](docs/ICLOUD.md) and [Desktop Favorites](docs/WIDGETS.md).
+On macOS 14 or later, turn on **Desktop Favorites widget** in ClipShelf's Preferences. Then right-click the desktop, choose **Edit Widgets…**, and add **ClipShelf Favorites**. Right-click the widget → **Edit Widget** to pick Snippets or a pinboard. Click a favorite to copy it. After updating ClipShelf, you may need to remove and re-add the widget.
+
+</details>
+
+<details>
+<summary><b>Is there iCloud sync?</b></summary>
+
+<br>
+
+It's built but needs an Apple-notarized build, so it isn't in the public download yet. See [iCloud sync](docs/ICLOUD.md).
 
 </details>
 

@@ -121,7 +121,7 @@ struct FavoritesContentView: View {
       }
       if !entry.enabled {
         Spacer(minLength: 0)
-        Text(entry.storageAvailable ? "Enable Desktop Favorites in ClipShelf Preferences." : "Complete widget signing setup in ClipShelf.").font(.caption).foregroundStyle(.secondary)
+        Text(entry.storageAvailable ? "Enable Desktop Favorites in ClipShelf Preferences." : "Open ClipShelf once to set up Favorites.").font(.caption).foregroundStyle(.secondary)
         FavoritesLink("Open ClipShelf", destination: floatingURL).font(.caption.bold())
         Spacer(minLength: 0)
       } else if let collection = entry.collection, !collection.items.isEmpty {

@@ -47,14 +47,29 @@ struct WidgetFavoritesStore {
     guard SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &information) == errSecSuccess else { return nil }
     return (information as? [String: Any])?[kSecCodeInfoTeamIdentifier as String] as? String
   }
-  private static func makeLive() -> Self {
+  /// Builds without a Team-ID App Group (ad-hoc / unpaid) share through this folder
+  /// instead. The unsandboxed host writes it directly; the sandboxed widget reaches it
+  /// through the matching home-relative-path exception in Widget.entitlements.
+  static let fallbackRelativePath = "Library/Application Support/ClipShelf/Widget"
+  static func fallbackDirectory(home: String) -> URL {
+    URL(fileURLWithPath: home, isDirectory: true).appendingPathComponent(fallbackRelativePath, isDirectory: true)
+  }
+  /// The user's real home. Inside the widget sandbox, NSHomeDirectory() is the container.
+  private static func realHomeDirectory() -> String? {
+    guard let entry = getpwuid(getuid()), let directory = entry.pointee.pw_dir else { return nil }
+    return String(cString: directory)
+  }
+  private static func groupDirectory() -> URL? {
     let group = Bundle.main.object(forInfoDictionaryKey: "ClipShelfAppGroup") as? String ?? ""
     guard !group.isEmpty, let task = SecTaskCreateFromSelf(nil),
       let groups = SecTaskCopyValueForEntitlement(task, "com.apple.security.application-groups" as CFString, nil) as? [String],
-      authorizes(group: group, memberships: groups, signingTeam: signingTeam()),
-      let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) else { return Self(directory: nil) }
-    do { return try accessibleStore(at: directory) }
-    catch { return Self(directory: nil) }
+      authorizes(group: group, memberships: groups, signingTeam: signingTeam()) else { return nil }
+    return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)
+  }
+  private static func makeLive() -> Self {
+    if let directory = groupDirectory(), let store = try? accessibleStore(at: directory) { return store }
+    guard let home = realHomeDirectory(), let store = try? accessibleStore(at: fallbackDirectory(home: home)) else { return Self(directory: nil) }
+    return store
   }
   /// On macOS a container URL alone does not prove access. Probe only an entitled
   /// container, once per process, with a unique file that contains no user data.

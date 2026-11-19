@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Desktop Favorites widget now works in the free download.** Builds without an App Group share favorites through `~/Library/Application Support/ClipShelf/Widget/`, using a sandbox exception scoped to that folder. Team-signed builds still use their App Group.
+
 ## 1.0.0 — 2026-11-19
 
 First public release.
@@ -11,7 +15,7 @@ First public release.
 - Universal (Apple Silicon + Intel) unnotarized DMG; see the [install steps](README.md#install)
 - Builds on Flutter 3.50; GitHub Actions CI builds and tests every change
 
-Desktop Favorites widget and iCloud sync need a Developer ID–signed build and are not included in the public download.
+Desktop Favorites widget and iCloud sync needed a Developer ID–signed build and were not included in the 1.0.0 download.
 
 ## Development history (before 1.0.0)
 
