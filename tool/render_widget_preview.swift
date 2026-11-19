@@ -17,10 +17,23 @@ struct WidgetPreviewRenderer {
       WidgetFavorite(id: "six", title: "Favorite quote", text: "Make room for good ideas.")
     ]
     let collection = WidgetCollection(id: "snippets", name: "Snippets", items: samples, total: 6)
-    for (name, family, width, previews) in [("small", WidgetFamily.systemSmall, 170.0, false), ("medium", .systemMedium, 360.0, false), ("small-text", .systemSmall, 170.0, true), ("medium-text", .systemMedium, 360.0, true)] {
-      let entry = FavoritesEntry(date: Date(), collection: collection, enabled: true, showPreviews: previews, copiedID: nil)
+    let variants: [(String, WidgetFamily, Double, Bool, ColorScheme, String?)] = [
+      ("small", .systemSmall, 170, false, .light, nil),
+      ("medium", .systemMedium, 360, false, .light, nil),
+      ("small-text", .systemSmall, 170, true, .light, nil),
+      ("medium-text", .systemMedium, 360, true, .light, nil),
+      // Dark appearance, with the second favorite in its "Copied" state.
+      ("medium-dark", .systemMedium, 360, true, .dark, "two"),
+    ]
+    for (name, family, width, previews, scheme, copied) in variants {
+      let entry = FavoritesEntry(date: Date(), collection: collection, enabled: true, showPreviews: previews, copiedID: copied)
+      let background = scheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.13) : Color.white
       let content = FavoritesContentView(entry: entry, family: family)
-        .padding(14).frame(width: width, height: 170).background(Color.white).environment(\.colorScheme, .light)
+        .padding(14).frame(width: width, height: 170)
+        .background(LinearGradient(colors: [Color.accentColor.opacity(0.10), .clear], startPoint: .topLeading, endPoint: .center))
+        .background(background)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .environment(\.colorScheme, scheme)
       let renderer = ImageRenderer(content: content); renderer.scale = 2
       guard let image = renderer.cgImage, let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { fatalError("Could not render widget preview") }
       try data.write(to: URL(fileURLWithPath: "widget-\(name)-preview.png"))

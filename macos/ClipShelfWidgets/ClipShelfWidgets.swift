@@ -107,60 +107,104 @@ struct FavoritesWidgetView: View {
   var body: some View { FavoritesContentView(entry: entry, family: family) }
 }
 struct FavoritesContentView: View {
+  @Environment(\.widgetRenderingMode) private var renderingMode
   let entry: FavoritesEntry
   let family: WidgetFamily
   private let floatingURL = URL(string: "clipshelf://open?view=floating")!
+  /// Tinted / accented desktop modes recolour everything; drop decorative fills there.
+  private var fullColor: Bool { renderingMode == .fullColor }
   var body: some View {
     VStack(alignment: .leading, spacing: family == .systemSmall ? 6 : 8) {
-      HStack {
-        Image(systemName: "clipboard.fill").foregroundStyle(.teal)
-        Text(entry.collection?.name ?? "Favorites").font(.headline).lineLimit(1)
-        Spacer(minLength: 0)
-        FavoritesLink(destination: floatingURL) { Image(systemName: "arrow.up.forward.app") }
-          .accessibilityLabel("Open floating panel")
-      }
+      header
       if !entry.enabled {
-        Spacer(minLength: 0)
-        Text(entry.storageAvailable ? "Enable Desktop Favorites in ClipShelf Preferences." : "Open ClipShelf once to set up Favorites.").font(.caption).foregroundStyle(.secondary)
-        FavoritesLink("Open ClipShelf", destination: floatingURL).font(.caption.bold())
-        Spacer(minLength: 0)
+        message(entry.storageAvailable ? "Enable Desktop Favorites in ClipShelf Preferences." : "Open ClipShelf once to set up Favorites.")
       } else if let collection = entry.collection, !collection.items.isEmpty {
         let limit = entry.showPreviews ? (family == .systemSmall ? 2 : 4) : (family == .systemSmall ? 3 : 6)
         if family == .systemSmall {
           ForEach(Array(collection.items.prefix(limit))) { item in favoriteRow(item) }
         } else {
-          LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 8) {
+          LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], alignment: .leading, spacing: 6) {
             ForEach(Array(collection.items.prefix(limit))) { item in favoriteRow(item) }
           }
         }
         Spacer(minLength: 0)
-        FavoritesLink("Open history", destination: URL(string: "clipshelf://open?view=shelf")!)
-          .font(.caption2).foregroundStyle(.secondary)
+        FavoritesLink(destination: URL(string: "clipshelf://open?view=shelf")!) {
+          HStack(spacing: 3) {
+            Text("Open history")
+            Image(systemName: "chevron.right").imageScale(.small)
+          }
+        }
+        .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
       } else {
-        Spacer(minLength: 0)
-        Text(entry.collection == nil ? "Choose a collection in Edit Widget." : (entry.collection?.total ?? 0) > 0 ? "Open ClipShelf to view text too large for this widget." : "Save text snippets or pin text to this collection.")
-          .font(.caption).foregroundStyle(.secondary)
-        FavoritesLink("Open ClipShelf", destination: floatingURL).font(.caption.bold())
-        Spacer(minLength: 0)
+        message(entry.collection == nil ? "Choose a collection in Edit Widget." : (entry.collection?.total ?? 0) > 0 ? "Open ClipShelf to view text too large for this widget." : "Save text snippets or pin text to this collection.")
       }
     }
-    .containerBackground(.background, for: .widget)
+    .containerBackground(for: .widget) {
+      if fullColor {
+        LinearGradient(colors: [Color.accentColor.opacity(0.10), Color.clear], startPoint: .topLeading, endPoint: .center)
+          .background(.background)
+      } else {
+        Color.clear
+      }
+    }
+  }
+  private var header: some View {
+    HStack(spacing: 7) {
+      Image(systemName: "list.clipboard.fill")
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(.white)
+        .frame(width: 20, height: 20)
+        .background(Color.accentColor.gradient, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .widgetAccentable()
+      Text(entry.collection?.name ?? "Favorites").font(.system(size: 13, weight: .semibold)).lineLimit(1)
+      Spacer(minLength: 0)
+      FavoritesLink(destination: floatingURL) {
+        Image(systemName: "arrow.up.forward.app").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+      }
+      .accessibilityLabel("Open floating panel")
+    }
+  }
+  private func message(_ text: String) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Spacer(minLength: 0)
+      Text(text).font(.caption).foregroundStyle(.secondary)
+      FavoritesLink("Open ClipShelf", destination: floatingURL).font(.caption.bold())
+        .foregroundStyle(Color.accentColor).widgetAccentable()
+      Spacer(minLength: 0)
+    }
   }
   private func favoriteRow(_ item: WidgetFavorite) -> some View {
-    Button(intent: CopyFavoriteIntent(id: item.id)) {
+    let copied = entry.copiedID == item.id
+    return Button(intent: CopyFavoriteIntent(id: item.id)) {
       HStack(spacing: 6) {
-        VStack(alignment: .leading, spacing: 2) {
-          Text(item.title).font(.caption.weight(.medium)).lineLimit(1)
-          if entry.showPreviews { Text(item.text).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
+        VStack(alignment: .leading, spacing: 1) {
+          Text(item.title).font(.system(size: 11.5, weight: .semibold)).lineLimit(1)
+          if copied {
+            Text("Copied").font(.caption2.weight(.medium)).foregroundStyle(.green).lineLimit(1)
+          } else if entry.showPreviews {
+            Text(item.text).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+          }
         }
         Spacer(minLength: 0)
-        Image(systemName: entry.copiedID == item.id ? "checkmark" : "doc.on.doc").font(.caption2)
+        Image(systemName: copied ? "checkmark.circle.fill" : "doc.on.doc")
+          .font(.system(size: 11, weight: .medium))
+          .foregroundStyle(copied ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+          .contentTransition(.symbolEffect(.replace))
       }
-      .padding(.horizontal, 7).padding(.vertical, 5).frame(maxWidth: .infinity, alignment: .leading)
-      .background(.quaternary, in: RoundedRectangle(cornerRadius: 7))
+      .padding(.horizontal, 8).padding(.vertical, entry.showPreviews ? 5 : 6)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .fill(fullColor ? AnyShapeStyle((copied ? Color.green : Color.accentColor).opacity(0.12)) : AnyShapeStyle(.quaternary))
+      }
+      .overlay {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .strokeBorder(.quaternary, lineWidth: fullColor ? 0.5 : 0)
+      }
+      .animation(.easeOut(duration: 0.2), value: copied)
     }
     .buttonStyle(.plain)
-    .accessibilityLabel("Copy \(item.title)")
+    .accessibilityLabel(copied ? "Copied \(item.title)" : "Copy \(item.title)")
   }
 }
 #if !CLIPSHELF_WIDGET_PREVIEW
