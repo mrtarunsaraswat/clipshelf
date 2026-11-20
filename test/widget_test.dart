@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:clipshelf/app/app.dart';
+import 'package:clipshelf/features/clipboard/application/library_view_controller.dart';
 import 'package:clipshelf/features/clipboard/domain/clipboard_item.dart';
 import 'package:clipshelf/features/clipboard/data/method_channel_clipboard_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,6 +75,12 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const ProviderScope(child: ClipShelf()));
+    await tester.pumpAndSettle();
+  }
+
+  /// The shelf keeps search collapsed behind its search button.
+  Future<void> openShelfSearch(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Search (⌘F)'));
     await tester.pumpAndSettle();
   }
 
@@ -163,19 +172,67 @@ void main() {
     },
   );
 
-  testWidgets('Panel session cleanup preserves an open Preferences dialog', (
+  Future<void> reopenPanel(WidgetTester tester) async {
+    nativePanelEvent(tester, 'closed');
+    await tester.pumpAndSettle();
+    nativePanelEvent(tester, 'opened', 'quick');
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'Reopening the panel closes Preferences and shows the clipboard',
+    (tester) async {
+      presentation = 'quick';
+      await load(tester);
+      await tester.tap(find.byTooltip('Preferences'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Close preferences'), findsOneWidget);
+      // Gone the moment the panel hides, with no closing animation, so the
+      // reopened panel never shows a stale frame of it.
+      nativePanelEvent(tester, 'closed');
+      await tester.pump();
+      expect(find.byTooltip('Close preferences'), findsNothing);
+      nativePanelEvent(tester, 'opened', 'quick');
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Close preferences'), findsNothing);
+    },
+  );
+
+  testWidgets('Preferences is still open after leaving for Allow access', (
     tester,
   ) async {
     presentation = 'quick';
     await load(tester);
     await tester.tap(find.byTooltip('Preferences'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Close preferences'), findsOneWidget);
-    nativePanelEvent(tester, 'closed');
+    await tester.scrollUntilVisible(
+      find.text('Allow access'),
+      100,
+      scrollable: find
+          .descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
+    await tester.tap(find.text('Allow access'));
     await tester.pumpAndSettle();
-    nativePanelEvent(tester, 'opened', 'quick');
-    await tester.pumpAndSettle();
+    await reopenPanel(tester); // back from System Settings
     expect(find.byTooltip('Close preferences'), findsOneWidget);
+    await reopenPanel(tester); // the next time it starts fresh again
+    expect(find.byTooltip('Close preferences'), findsNothing);
+  });
+
+  testWidgets('A half-written snippet survives hiding and reopening', (
+    tester,
+  ) async {
+    presentation = 'quick';
+    await load(tester);
+    await tester.tap(find.byTooltip('New snippet (⌘N)'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).last, 'Draft text');
+    await reopenPanel(tester);
+    expect(find.text('Draft text'), findsOneWidget);
   });
 
   testWidgets(
@@ -198,11 +255,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(calls.last.method, 'copy');
       expect(calls.last.arguments, {'id': 'a', 'paste': false});
+      await openShelfSearch(tester);
       await tester.enterText(find.byType(TextField), 'missing');
       await tester.pumpAndSettle();
       expect(find.text('Nothing matches just yet.'), findsOneWidget);
       await tester.enterText(find.byType(TextField), '');
-      await tester.tap(find.text('Snippets'));
+      await tester.tap(find.byTooltip('Snippets'));
       await tester.pumpAndSettle();
       expect(find.text('Hello there'), findsWidgets);
       expect(find.text('Meeting notes'), findsNothing);
@@ -212,7 +270,7 @@ void main() {
     tester,
   ) async {
     await load(tester);
-    await tester.tap(find.text('New snippet'));
+    await tester.tap(find.byTooltip('New snippet (⌘N)'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save snippet'));
     await tester.pumpAndSettle();
@@ -299,6 +357,246 @@ void main() {
       'paste': true,
     });
   });
+  testWidgets('Text cards show their character count', (tester) async {
+    await load(tester);
+    expect(find.text('13 characters'), findsOneWidget); // "Meeting notes"
+  });
+  testWidgets('A new copy slides in at the front of the shelf', (tester) async {
+    await load(tester);
+    currentState = {
+      ...currentState,
+      'clips': [clip('n', 'Fresh copy'), ...currentState['clips'] as List],
+    };
+    tester.binding.channelBuffers.push(
+      clipboardChannel.name,
+      const StandardMethodCodec().encodeMethodCall(
+        MethodCall('changed', currentState),
+      ),
+      (_) {},
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Fresh copy'), findsOneWidget); // mid-animation
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('Fresh copy')).dx,
+      lessThan(tester.getTopLeft(find.text('Meeting notes')).dx),
+    );
+  });
+  testWidgets('Search offers filters: Tab adds a chip, Backspace removes it', (
+    tester,
+  ) async {
+    await load(tester);
+    await openShelfSearch(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(TextField)),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'tex');
+    await tester.pumpAndSettle();
+    expect(find.text('TextEdit'), findsOneWidget); // app suggestion in the menu
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    final tokens = container.read(libraryViewProvider).tokens;
+    expect(tokens.map((t) => t.label), ['Text']);
+    expect(container.read(libraryViewProvider).query, isEmpty);
+    expect(find.text('Meeting notes'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    expect(container.read(libraryViewProvider).tokens, isEmpty);
+  });
+  testWidgets(
+    'Shelf search: typing opens it, ↓ and Return pick a filter, Escape clears then closes',
+    (tester) async {
+      await load(tester);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ClipShelf)),
+      );
+      expect(find.byType(TextField), findsNothing); // collapsed by default
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyT, character: 't');
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+      expect(container.read(libraryViewProvider).query, 't');
+      await tester.enterText(find.byType(TextField), 'tex');
+      await tester.pumpAndSettle();
+      // Suggestions: Text, then the TextEdit app. ↓ moves to the second.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(container.read(libraryViewProvider).tokens.map((t) => t.label), [
+        'TextEdit',
+      ]);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape); // clear
+      await tester.pumpAndSettle();
+      expect(container.read(libraryViewProvider).tokens, isEmpty);
+      expect(find.byType(TextField), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape); // close
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byTooltip('Search (⌘F)'), findsOneWidget);
+      expect(calls.where((c) => c.method == 'hide'), isEmpty);
+    },
+  );
+  testWidgets(
+    'Shelf search closes with ✕ or a click away, but only when empty',
+    (tester) async {
+      await load(tester);
+      await openShelfSearch(tester);
+      await tester.tap(find.byTooltip('Close search'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      await openShelfSearch(tester);
+      await tester.tapAt(tester.getCenter(find.textContaining('On this Mac')));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing); // empty: collapses
+      await openShelfSearch(tester);
+      await tester.enterText(find.byType(TextField), 'meeting');
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(find.textContaining('On this Mac')));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget); // has a query: stays
+      expect(find.byTooltip('Clear search'), findsOneWidget);
+    },
+  );
+  testWidgets('Clip lists never paint scrolled-out rows over the header', (
+    tester,
+  ) async {
+    presentation = 'quick';
+    await load(tester);
+    expect(
+      tester.widget<AnimatedList>(find.byType(AnimatedList)).clipBehavior,
+      Clip.hardEdge,
+    );
+  });
+  testWidgets('Menu-bar image rows show a thumbnail with app, time and size', (
+    tester,
+  ) async {
+    presentation = 'quick';
+    await load(tester);
+    // A 1×1 PNG stands in for the screenshot thumbnail.
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    );
+    currentState = {
+      ...currentState,
+      'clips': [
+        {
+          ...clip('img', 'Screenshot 2026-11-20.png'),
+          'kind': 'image',
+          'text': '',
+          'source': 'Screenshot',
+          'preview': png,
+          'pixelWidth': 2880,
+          'pixelHeight': 1800,
+        },
+        ...currentState['clips'] as List,
+      ],
+    };
+    tester.binding.channelBuffers.push(
+      clipboardChannel.name,
+      const StandardMethodCodec().encodeMethodCall(
+        MethodCall('changed', currentState),
+      ),
+      (_) {},
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Screenshot 2026-11-20.png'), findsOneWidget);
+    expect(find.textContaining('Screenshot · '), findsOneWidget);
+    expect(find.textContaining('2880 × 1800'), findsOneWidget);
+  });
+  testWidgets('The shelf handle closes the shelf on a click or a drag down', (
+    tester,
+  ) async {
+    await load(tester);
+    await tester.tap(find.byTooltip('Close (esc)'));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'hide'), hasLength(1));
+    await tester.drag(find.byTooltip('Close (esc)'), const Offset(0, 40));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'hide'), hasLength(2));
+    await tester.drag(find.byTooltip('Close (esc)'), const Offset(0, -40));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'hide'), hasLength(2)); // up: no
+  });
+  testWidgets('Preferences sets how long and how much history to keep', (
+    tester,
+  ) async {
+    currentState = {};
+    await load(tester);
+    await tester.tap(find.byTooltip('Preferences'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.textContaining('Storage used'),
+      120,
+      scrollable: find
+          .descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Forever'), findsOneWidget);
+    expect(find.text('200 items'), findsOneWidget);
+    expect(find.text('Storage used: 0.0 MB of 100 MB'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Keep history for'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Keep history for'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1 week').last);
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'historyPolicy').single.arguments, {
+      'retentionDays': 7,
+    });
+  });
+  testWidgets('The credit links Tarun to his LinkedIn profile', (tester) async {
+    await load(tester);
+    await tester.tap(find.byTooltip('Preferences'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byTooltip('Open Tarun’s LinkedIn profile'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
+    await tester.tap(find.text('Tarun'));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'openURL').single.arguments, {
+      'url': 'https://www.linkedin.com/in/mrtarunsaraswat/',
+    });
+  });
+  testWidgets('Menu-bar panel opens the snippet editor in one click', (
+    tester,
+  ) async {
+    presentation = 'quick';
+    await load(tester);
+    await tester.tap(find.byTooltip('New snippet (⌘N)'));
+    await tester.pumpAndSettle();
+    expect(find.text('A little less typing.'), findsOneWidget);
+  });
+  testWidgets(
+    'Native ⌘-number quick use pastes even while the search field has focus',
+    (tester) async {
+      presentation = 'quick';
+      await load(tester);
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      tester.binding.channelBuffers.push(
+        clipboardChannel.name,
+        const StandardMethodCodec().encodeMethodCall(MethodCall('quickUse', 1)),
+        (_) {},
+      );
+      await tester.pumpAndSettle();
+      expect(calls.where((c) => c.method == 'copy').single.arguments, {
+        'id': 'c',
+        'paste': true,
+      });
+    },
+  );
   testWidgets(
     'Sync needs explicit consent before the platform is asked to upload',
     (tester) async {
@@ -325,7 +623,7 @@ void main() {
   ) async {
     presentation = 'quick';
     await load(tester);
-    tester.view.physicalSize = const Size(440, 560);
+    tester.view.physicalSize = const Size(360, 560);
     await tester.pumpAndSettle();
     expect(find.text('Click an item to paste'), findsOneWidget);
     expect(find.textContaining('Enable Accessibility'), findsOneWidget);
@@ -341,7 +639,7 @@ void main() {
   ) async {
     presentation = 'quick';
     await load(tester);
-    tester.view.physicalSize = const Size(440, 560);
+    tester.view.physicalSize = const Size(360, 560);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Copy to clipboard').first);
     await tester.pumpAndSettle();
@@ -362,7 +660,7 @@ void main() {
     (tester) async {
       presentation = 'quick';
       await load(tester);
-      tester.view.physicalSize = const Size(440, 560);
+      tester.view.physicalSize = const Size(360, 560);
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('quick-item-a')),
@@ -397,7 +695,7 @@ void main() {
     (tester) async {
       presentation = 'quick';
       await load(tester);
-      tester.view.physicalSize = const Size(440, 560);
+      tester.view.physicalSize = const Size(360, 560);
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Enable Accessibility for one-click paste.'),
@@ -494,8 +792,9 @@ void main() {
     'Reopening the menu-bar panel clears stale search and collection state',
     (tester) async {
       await load(tester);
+      await openShelfSearch(tester);
       await tester.enterText(find.byType(TextField), 'missing');
-      await tester.tap(find.text('Snippets'));
+      await tester.tap(find.byTooltip('Snippets'));
       await tester.pumpAndSettle();
       presentation = 'quick';
       tester.binding.channelBuffers.push(

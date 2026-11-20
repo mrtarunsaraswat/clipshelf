@@ -87,7 +87,7 @@ ClipShelf has no Dock icon. Find it in the menu bar, and right-click the icon fo
 
 <br>
 
-Only on your Mac, in `~/Library/Application Support/ClipShelf/`. It keeps up to 200 recent clips, and your snippets and pinboards are kept until you delete them.
+Only on your Mac, in `~/Library/Application Support/ClipShelf/`. By default ClipShelf keeps your 200 most recent clips; in **Preferences → History** you can keep 100 to 1,000 items and have older ones removed automatically after a day, a week or a month. Snippets and pinned items are kept until you delete them.
 
 </details>
 
@@ -114,7 +114,7 @@ On macOS 14 or later, turn on **Desktop Favorites widget** in ClipShelf's Prefer
 
 <br>
 
-It's built but needs an Apple-notarized build, so it isn't in the public download yet. See [iCloud sync](docs/ICLOUD.md).
+**Coming soon.** iCloud sync will keep your history, snippets and pinboards in step across your Apple devices. Until then, everything stays on this Mac. See [iCloud sync](docs/ICLOUD.md).
 
 </details>
 
@@ -143,3 +143,5 @@ flutter run -d macos          # run in development
 ## 📄 License
 
 [MIT](LICENSE) © 2026 Tarun Sharma. Built with [Flutter](https://flutter.dev).
+
+<p align="center">Made with ♥ by <a href="https://www.linkedin.com/in/mrtarunsaraswat/">Tarun</a></p>

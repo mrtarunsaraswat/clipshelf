@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/clipboard/application/clipboard_controller.dart';
 import '../features/clipboard/presentation/clipboard_screen.dart';
+import 'overlay_route_tracker.dart';
 import 'theme.dart';
 
 class ClipShelf extends ConsumerWidget {
@@ -21,6 +22,7 @@ class ClipShelf extends ConsumerWidget {
     );
     final accent = accentValue == null ? brandAccent : Color(accentValue);
     return MaterialApp(
+      navigatorObservers: [ref.watch(overlayRouteTrackerProvider)],
       title: 'ClipShelf',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(Brightness.light, accent: accent, glass: glass),

@@ -34,6 +34,8 @@ class MethodChannelClipboardRepository implements ClipboardRepository {
           );
         case 'closed':
           _events.add(const PanelClosed());
+        case 'quickUse':
+          _events.add(QuickUseRequested(call.arguments as int));
         case 'opened':
           _events.add(
             PanelOpened(PanelPresentation.fromNative(call.arguments)),

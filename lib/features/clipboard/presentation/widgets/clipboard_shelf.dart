@@ -8,6 +8,9 @@ import 'package:clipshelf/features/clipboard/application/library_view_controller
 import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart';
 import 'package:clipshelf/features/clipboard/presentation/clipboard_style.dart';
 
+import 'animated_clip_list.dart';
+import 'search_morph.dart';
+import 'smart_search_field.dart';
 import 'clipboard_card.dart';
 import 'collection_tab.dart';
 import 'empty_library.dart';
@@ -32,8 +35,6 @@ class ClipboardShelf extends ConsumerWidget {
     final items = ref.watch(visibleItemsProvider);
     final selectedItem = ref.watch(selectedItemProvider);
     final current = ref.watch(selectedItemProvider);
-    final filter = view.filter.label;
-    final query = view.query;
     final boards = snapshot.boards;
     final paused = snapshot.paused;
     final warning = snapshot.warning;
@@ -56,6 +57,51 @@ class ClipboardShelf extends ConsumerWidget {
           onSelected: chooseCollection,
         );
     final colors = context.shelf;
+    final searchOpen =
+        view.searchOpen || view.query.isNotEmpty || view.tokens.isNotEmpty;
+    // Drag a card onto a pinboard to pin it.
+    Widget boardDropTarget(String boardID, Widget child) => DragTarget<String>(
+      onAcceptWithDetails: (details) => actions.pin(details.data, boardID),
+      builder: (context, candidates, rejected) => AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: candidates.isNotEmpty
+              ? colors.surfaceSelected
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: candidates.isNotEmpty
+              ? Border.all(color: colors.accentText, width: 2)
+              : null,
+        ),
+        child: child,
+      ),
+    );
+    // While searching, collections shrink to icons and colour dots.
+    Widget compactTab(String value, String label, IconData icon, Color? dot) {
+      final selected = section == value;
+      final button = IconButton(
+        tooltip: label,
+        style:
+            toolbarButtonStyle(
+              colors,
+              foreground: selected ? colors.textPrimary : colors.textSecondary,
+            ).copyWith(
+              backgroundColor: WidgetStatePropertyAll(
+                selected ? colors.surfaceHover : Colors.transparent,
+              ),
+            ),
+        onPressed: () => chooseCollection(value),
+        icon: dot == null
+            ? Icon(icon, size: 17)
+            : Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+              ),
+      );
+      return dot == null ? button : boardDropTarget(value, button);
+    }
+
     return Scaffold(
       backgroundColor: colors.canvas,
       body: Padding(
@@ -63,17 +109,8 @@ class ClipboardShelf extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.strokeStrong,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
+            Center(child: _ShelfHandle(onClose: () => actions.hide())),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Icon(Icons.layers_rounded, color: colors.accentText, size: 22),
@@ -107,11 +144,59 @@ class ClipboardShelf extends ConsumerWidget {
                     ),
                   ),
                 ],
-                const SizedBox(width: 20),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
+                  child: SearchMorph(
+                    open: searchOpen,
+                    onOpen: () {
+                      viewController.openSearch();
+                      // autofocus only works the first time; focus every open.
+                      WidgetsBinding.instance.addPostFrameCallback(
+                        (_) => searchFocus.requestFocus(),
+                      );
+                    },
+                    focusNode: searchFocus,
+                    field: SmartSearchField(
+                      controller: search,
+                      focusNode: searchFocus,
+                      autofocus: true,
+                      bare: true,
+                      hintText: 'Search',
+                      onSubmitted: () {
+                        if (current != null) actions.paste(current);
+                      },
+                      onClose: () {
+                        search.clear();
+                        viewController.closeSearch();
+                        libraryFocus.requestFocus();
+                      },
+                    ),
+                    compact: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        compactTab(
+                          'All items',
+                          'Clipboard',
+                          Icons.history_rounded,
+                          null,
+                        ),
+                        compactTab(
+                          'Snippets',
+                          'Snippets',
+                          Icons.bookmark_outline,
+                          null,
+                        ),
+                        for (final board in boards)
+                          compactTab(
+                            board.id,
+                            board.name,
+                            Icons.circle,
+                            boardColor(colors, board.color),
+                          ),
+                      ],
+                    ),
+                    tabs: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
                           padding: const EdgeInsets.all(3),
@@ -137,35 +222,14 @@ class ClipboardShelf extends ConsumerWidget {
                               for (final board in boards)
                                 Padding(
                                   padding: const EdgeInsets.only(left: 2),
-                                  child: DragTarget<String>(
-                                    onAcceptWithDetails: (details) =>
-                                        actions.pin(details.data, board.id),
-                                    builder: (context, candidates, rejected) =>
-                                        AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 150,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: candidates.isNotEmpty
-                                                ? colors.surfaceSelected
-                                                : Colors.transparent,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            border: candidates.isNotEmpty
-                                                ? Border.all(
-                                                    color: colors.accentText,
-                                                    width: 2,
-                                                  )
-                                                : null,
-                                          ),
-                                          child: tab(
-                                            board.id,
-                                            board.name,
-                                            Icons.circle,
-                                            boardColor(colors, board.color),
-                                          ),
-                                        ),
+                                  child: boardDropTarget(
+                                    board.id,
+                                    tab(
+                                      board.id,
+                                      board.name,
+                                      Icons.circle,
+                                      boardColor(colors, board.color),
+                                    ),
                                   ),
                                 ),
                             ],
@@ -181,6 +245,16 @@ class ClipboardShelf extends ConsumerWidget {
                       ],
                     ),
                   ),
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  tooltip: 'New snippet (⌘N)',
+                  style: toolbarButtonStyle(
+                    colors,
+                    foreground: colors.accentText,
+                  ),
+                  onPressed: () => actions.showSnippet(),
+                  icon: const Icon(Icons.bookmark_add_outlined, size: 18),
                 ),
                 IconButton(
                   tooltip: paused ? 'Resume capture' : 'Pause capture',
@@ -205,113 +279,6 @@ class ClipboardShelf extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 36,
-                    child: TextField(
-                      controller: search,
-                      focusNode: searchFocus,
-                      onChanged: (value) => viewController.search(value),
-                      onSubmitted: (_) {
-                        if (current != null) actions.paste(current);
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Search your clipboard…',
-                        hintStyle: TextStyle(
-                          fontSize: ShelfType.body,
-                          color: colors.textTertiary,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        prefixIcon: const Icon(Icons.search, size: 17),
-                        suffixIconConstraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 20,
-                        ),
-                        suffixIcon: query.isNotEmpty
-                            ? IconButton(
-                                onPressed: () {
-                                  search.clear();
-                                  viewController.search('');
-                                },
-                                icon: const Icon(Icons.close, size: 15),
-                              )
-                            : const Padding(
-                                padding: EdgeInsets.only(right: 10),
-                                child: Keycap('⌘F', dense: true),
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                PopupMenuButton<String>(
-                  tooltip: 'Filter by format',
-                  initialValue: filter,
-                  onSelected: (value) =>
-                      viewController.filter(ItemFilter.fromLabel(value)),
-                  itemBuilder: (_) => [
-                    for (final value in [
-                      'All',
-                      'Text',
-                      'Image',
-                      'File',
-                      'Other',
-                    ])
-                      PopupMenuItem(value: value, child: Text(value)),
-                  ],
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      border: Border.all(color: colors.stroke),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.filter_list, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          filter == 'All' ? 'All formats' : filter,
-                          style: const TextStyle(fontSize: ShelfType.meta),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.expand_more, size: 15),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.tonalIcon(
-                  onPressed: () => actions.showSnippet(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colors.surfaceSelected,
-                    foregroundColor: colors.accentText,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    minimumSize: const Size(0, 36),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text(
-                    'New snippet',
-                    style: TextStyle(
-                      fontSize: ShelfType.meta,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
             if (warning.isNotEmpty || paused)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -324,7 +291,7 @@ class ClipboardShelf extends ConsumerWidget {
                   style: TextStyle(fontSize: 11, color: colors.warningText),
                 ),
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Expanded(
               child: loading
                   ? const Center(child: CircularProgressIndicator())
@@ -333,27 +300,21 @@ class ClipboardShelf extends ConsumerWidget {
                   : Scrollbar(
                       controller: listScroll,
                       thumbVisibility: true,
-                      child: ListView.separated(
+                      child: AnimatedClipList(
+                        items: items,
                         controller: listScroll,
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.fromLTRB(2, 2, 2, 16),
-                        clipBehavior: Clip.none,
-                        itemCount: items.length,
-                        separatorBuilder: (_, index) =>
-                            const SizedBox(width: 14),
-                        itemBuilder: (context, index) => SizedBox(
-                          width: 248,
-                          child: ClipboardCard(
-                            item: items[index],
-                            index: index,
-                            active: selectedItem?.id == items[index].id,
-                            boards: boards,
-                            actions: actions,
-                            onSelected: () {
-                              viewController.select(items[index].id);
-                              libraryFocus.requestFocus();
-                            },
-                          ),
+                        extent: 248,
+                        padding: const EdgeInsets.fromLTRB(6, 6, 6, 22),
+                        itemBuilder: (context, item, index) => ClipboardCard(
+                          item: item,
+                          index: index,
+                          active: selectedItem?.id == item.id,
+                          boards: boards,
+                          actions: actions,
+                          onSelected: () {
+                            viewController.select(item.id);
+                            libraryFocus.requestFocus();
+                          },
                         ),
                       ),
                     ),
@@ -379,7 +340,7 @@ class ClipboardShelf extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  '${items.length} items',
+                  '${items.length} ${items.length == 1 ? 'item' : 'items'}',
                   style: TextStyle(
                     fontSize: ShelfType.caption,
                     color: colors.textTertiary,
@@ -400,6 +361,62 @@ class ClipboardShelf extends ConsumerWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The grip at the top of the shelf: click it, or drag it down, to close.
+class _ShelfHandle extends StatefulWidget {
+  const _ShelfHandle({required this.onClose});
+  final VoidCallback onClose;
+
+  @override
+  State<_ShelfHandle> createState() => _ShelfHandleState();
+}
+
+class _ShelfHandleState extends State<_ShelfHandle> {
+  bool _hovered = false;
+  double _drag = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.shelf;
+    return Tooltip(
+      message: 'Close (esc)',
+      waitDuration: const Duration(milliseconds: 700),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onClose,
+          onVerticalDragStart: (_) => _drag = 0,
+          onVerticalDragUpdate: (details) =>
+              setState(() => _drag = (_drag + details.delta.dy).clamp(0, 40)),
+          onVerticalDragEnd: (details) {
+            final flung = (details.primaryVelocity ?? 0) > 300;
+            if (_drag > 18 || flung) widget.onClose();
+            setState(() => _drag = 0);
+          },
+          child: SizedBox(
+            width: 96,
+            height: 16,
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                transform: Matrix4.translationValues(0, _drag / 3, 0),
+                width: _hovered ? 44 : 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: _hovered ? colors.textTertiary : colors.strokeStrong,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

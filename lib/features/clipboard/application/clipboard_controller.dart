@@ -38,6 +38,8 @@ class ClipboardController extends AsyncNotifier<ClipboardSnapshot> {
             if (ready) state = AsyncData(snapshot);
           case PanelClosed():
             ref.read(panelSessionProvider.notifier).closed();
+          case QuickUseRequested(:final index):
+            ref.read(quickUseRequestProvider.notifier).request(index);
           case PanelOpened(:final presentation):
             ref.read(panelSessionProvider.notifier).opened(presentation);
             if (ready) {

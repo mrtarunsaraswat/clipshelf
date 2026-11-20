@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/clipboard_item.dart';
 import '../domain/clipboard_snapshot.dart';
+import '../domain/search_token.dart';
 import 'panel_session.dart';
 import 'clipboard_controller.dart';
 
@@ -48,8 +49,16 @@ class LibraryViewState {
     this.filter = ItemFilter.all,
     this.collection = const ClipboardCollection.history(),
     this.selectedID,
+    this.tokens = const [],
+    this.searchOpen = false,
   });
+
+  /// The shelf shows its search field in place of the collection tabs.
+  final bool searchOpen;
   final String query;
+
+  /// Filter chips in the search field (Link, Last week, Mail…).
+  final List<SearchToken> tokens;
   final ItemFilter filter;
   final ClipboardCollection collection;
   final String? selectedID;
@@ -58,8 +67,12 @@ class LibraryViewState {
     ItemFilter? filter,
     ClipboardCollection? collection,
     String? selectedID,
+    List<SearchToken>? tokens,
+    bool? searchOpen,
     bool clearSelection = false,
   }) => LibraryViewState(
+    searchOpen: searchOpen ?? this.searchOpen,
+    tokens: tokens ?? this.tokens,
     query: query ?? this.query,
     filter: filter ?? this.filter,
     collection: collection ?? this.collection,
@@ -86,6 +99,42 @@ class LibraryViewController extends Notifier<LibraryViewState> {
   }
 
   void search(String query) => state = state.copyWith(query: query);
+
+  /// Turns the typed fragment into a filter chip and clears the text.
+  void addToken(SearchToken token) {
+    if (state.tokens.contains(token)) return;
+    state = state.copyWith(
+      tokens: [...state.tokens, token],
+      query: '',
+      clearSelection: true,
+    );
+  }
+
+  void removeToken(SearchToken token) => state = state.copyWith(
+    tokens: [...state.tokens]..remove(token),
+    clearSelection: true,
+  );
+
+  void openSearch() => state = state.copyWith(searchOpen: true);
+
+  /// Closes search and drops its text and chips.
+  void closeSearch() => state = state.copyWith(
+    searchOpen: false,
+    query: '',
+    tokens: const [],
+    clearSelection: true,
+  );
+
+  void clearSearch() =>
+      state = state.copyWith(query: '', tokens: const [], clearSelection: true);
+
+  /// Backspace in an empty search field removes the last chip.
+  bool removeLastToken() {
+    if (state.tokens.isEmpty) return false;
+    removeToken(state.tokens.last);
+    return true;
+  }
+
   void filter(ItemFilter filter) =>
       state = state.copyWith(filter: filter, clearSelection: true);
   void choose(ClipboardCollection collection) => state = state.copyWith(
@@ -113,8 +162,9 @@ class LibraryViewController extends Notifier<LibraryViewState> {
 
 List<ClipItem> filterClipboardItems(
   List<ClipItem> clips,
-  LibraryViewState view,
-) => List.unmodifiable(
+  LibraryViewState view, {
+  DateTime? now,
+}) => List.unmodifiable(
   clips.where(
     (item) =>
         switch (view.collection.kind) {
@@ -123,19 +173,45 @@ List<ClipItem> filterClipboardItems(
           CollectionKind.board => item.boardID == view.collection.boardID,
         } &&
         (view.filter == ItemFilter.all || item.kind == view.filter.name) &&
+        matchesTokens(item, view.tokens, now ?? DateTime.now()) &&
         item.matches(view.query),
   ),
 );
 
 final visibleItemsProvider = Provider<List<ClipItem>>((ref) {
   final clips = ref.watch(clipboardSnapshotProvider.select((s) => s.clips));
-  final (query, filter, collection) = ref.watch(
-    libraryViewProvider.select((s) => (s.query, s.filter, s.collection)),
+  final (query, filter, collection, tokens) = ref.watch(
+    libraryViewProvider.select(
+      (s) => (s.query, s.filter, s.collection, s.tokens),
+    ),
   );
   return filterClipboardItems(
     clips,
-    LibraryViewState(query: query, filter: filter, collection: collection),
+    LibraryViewState(
+      query: query,
+      filter: filter,
+      collection: collection,
+      tokens: tokens,
+    ),
   );
+});
+
+/// Source app name → bundle ID, for app icons on filter chips.
+final appBundleIDsProvider = Provider<Map<String, String>>((ref) {
+  final clips = ref.watch(clipboardSnapshotProvider.select((s) => s.clips));
+  return {
+    for (final clip in clips.reversed)
+      if (clip.sourceBundleID.isNotEmpty) clip.source: clip.sourceBundleID,
+  };
+});
+
+/// Filter chips to offer for the text currently typed in search.
+final searchSuggestionsProvider = Provider<List<SearchToken>>((ref) {
+  final clips = ref.watch(clipboardSnapshotProvider.select((s) => s.clips));
+  final (query, tokens) = ref.watch(
+    libraryViewProvider.select((s) => (s.query, s.tokens)),
+  );
+  return suggestTokens(query, clips, tokens);
 });
 final selectedItemProvider = Provider<ClipItem?>((ref) {
   final items = ref.watch(visibleItemsProvider);

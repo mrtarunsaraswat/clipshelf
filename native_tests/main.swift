@@ -1,3 +1,4 @@
+import Carbon
 // Native logic checks use an in-memory boundary by default.
 // Pass --system-pasteboard to additionally exercise an isolated named macOS pasteboard.
 import Cocoa
@@ -153,7 +154,7 @@ _ = invoke(pinBridge, "clear")
 check(pinBridge.archive.versions?["clip-evicted"]?.deleted == true, "clear history also deletes known evicted cloud items")
 let firstScreen = NSRect(x:0,y:0,width:1440,height:876)
 let rightFrame = ClipboardBridge.quickFrame(anchor:NSRect(x:1420,y:876,width:20,height:24),visible:firstScreen)
-check(firstScreen.contains(rightFrame) && rightFrame.width == 440, "menu-bar panel stays inside right screen edge")
+check(firstScreen.contains(rightFrame) && rightFrame.width == 360, "menu-bar panel stays inside right screen edge at 360 pt")
 let leftScreen = NSRect(x:-1280,y:100,width:1280,height:700)
 let leftFrame = ClipboardBridge.quickFrame(anchor:NSRect(x:-1280,y:800,width:22,height:24),visible:leftScreen)
 check(leftScreen.contains(leftFrame), "menu-bar panel supports displays with negative coordinates")
@@ -242,6 +243,84 @@ check(!PanelDismissalPolicy.shouldDismissAfterFocusChange(ownsFocus: true, prese
 check(PanelDismissalPolicy.shouldDismissAfterFocusChange(ownsFocus: false, presentation: "quick", pinned: true), "genuine focus loss still dismisses quick panel")
 check(!PanelDismissalPolicy.shouldDismissAfterFocusChange(ownsFocus: false, presentation: "floating", pinned: true), "focus changes preserve pinned floating behavior")
 check(PanelDismissalPolicy.shouldDismissAfterFocusChange(ownsFocus: false, presentation: "floating", pinned: false), "unpinned floating panel follows normal focus dismissal")
+
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_1), modifiers: .command) == 0, "⌘1 maps to the first quick-use item")
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_9), modifiers: [.command, .capsLock]) == 8, "⌘9 maps to the ninth item, ignoring Caps Lock")
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_1), modifiers: [.command, .shift]) == nil, "⇧⌘1 is not quick use")
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_1), modifiers: []) == nil, "a bare 1 is typed into search, not quick use")
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_0), modifiers: .command) == nil, "⌘0 is not a quick-use key")
+
+let pageBase = URL(string: "https://example.com/blog/post")!
+let ogPage = """
+<html><head><title>Fallback title</title>
+<meta content="/img/share.png" property="og:image">
+<meta property="og:title" content="Design &amp; Systems">
+</head></html>
+"""
+let parsed = LinkPreviewLoader.parse(ogPage, base: pageBase)
+check(parsed.title == "Design & Systems" && parsed.image?.absoluteString == "https://example.com/img/share.png", "link preview reads Open Graph title and resolves a relative image in either attribute order")
+let titleOnly = LinkPreviewLoader.parse("<html><title> Plain page </title></html>", base: pageBase)
+check(titleOnly.title == "Plain page" && titleOnly.image == nil, "link preview falls back to the page <title>")
+check(LinkPreviewLoader.webURL("https://flutter.dev") != nil && LinkPreviewLoader.webURL("file:///etc/passwd") == nil && LinkPreviewLoader.webURL("mailto:a@b.c") == nil, "link previews only fetch http(s) pages")
+let wasEnabled = LinkPreviewLoader.enabled
+LinkPreviewLoader.enabled = false
+var disabledResult: LinkPreviewLoader.Preview?? = .none
+LinkPreviewLoader.shared.preview(for: "https://example.com") { disabledResult = .some($0) }
+check(disabledResult != nil && disabledResult! == nil, "link previews make no request while the switch is off")
+LinkPreviewLoader.enabled = wasEnabled
+let sizeRep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 30, pixelsHigh: 20, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+let sizedPNG = sizeRep.representation(using: .png, properties: [:])!
+check(Clip.pixelSize(of: sizedPNG).map { $0 == (30, 20) } == true, "image cards read the original pixel size")
+check(ClipIcons.file("/nonexistent/backup.zip") != nil, "file cards get a type icon even when the file is gone")
+
+let restingShelf = NSRect(x: 12, y: 12, width: 1400, height: 430)
+check(ClipboardBridge.shelfSlideFrame(restingShelf, reduceMotion: false) == restingShelf.offsetBy(dx: 0, dy: -28), "shelf slides up from just below its resting frame")
+check(ClipboardBridge.shelfSlideFrame(restingShelf, reduceMotion: true) == restingShelf, "Reduce Motion: the shelf only fades")
+
+let vsCodeCopy = { (session: String) in
+  Clip(id: UUID().uuidString, title: "let x = 1", text: "let x = 1", kind: "text", source: "Code", date: 1, snippet: false,
+    items: [["public.utf8-plain-text": Data("let x = 1".utf8), "org.chromium.web-custom-data": Data(session.utf8)]], preview: nil)
+}
+check(vsCodeCopy("a").sameContent(as: vsCodeCopy("b")), "repeat ⌘C in VS Code is the same item despite changing Chromium data")
+var otherText = vsCodeCopy("a"); otherText.text = "let y = 2"
+check(!vsCodeCopy("a").sameContent(as: otherText), "different text is a different item")
+var asFile = vsCodeCopy("a"); asFile.kind = "file"
+check(!vsCodeCopy("a").sameContent(as: asFile), "a file and text with the same string are different items")
+let dedupeBridge = ClipboardBridge(window: nil, messenger: Messenger(), storageURL: folder.appendingPathComponent("dedupe.json"), pasteboard: MemoryPasteboard(), startMonitoring: false)
+for session in ["one", "two", "three", "four"] {
+  dedupeBridge.pasteboard.clearContents()
+  let item = NSPasteboardItem()
+  item.setString("same text", forType: .string)
+  item.setData(Data(session.utf8), forType: NSPasteboard.PasteboardType("org.chromium.web-custom-data"))
+  _ = dedupeBridge.pasteboard.writeObjects([item])
+  dedupeBridge.capture()
+}
+check(dedupeBridge.archive.clips.filter { $0.text == "same text" }.count == 1, "pressing ⌘C four times keeps one history item")
+
+let policySuite = "clipshelf-tests-policy-\(UUID().uuidString)"
+let policyDefaults = UserDefaults(suiteName: policySuite)!
+defer { policyDefaults.removePersistentDomain(forName: policySuite) }
+check(HistoryPolicy.load(from: policyDefaults) == HistoryPolicy(), "history defaults: 200 items, kept until the size limit")
+check(HistoryPolicy(limit: 200).byteBudget == 100 * 1024 * 1024 && HistoryPolicy(limit: 1000).byteBudget == 500 * 1024 * 1024, "storage budget scales with the item limit (200 → 100 MB)")
+policyDefaults.set(999, forKey: "historyLimit")
+check(HistoryPolicy.load(from: policyDefaults).limit == 200, "an unknown stored limit falls back to 200")
+let policyBridge = ClipboardBridge(window: nil, messenger: Messenger(), storageURL: folder.appendingPathComponent("policy.json"), pasteboard: MemoryPasteboard(), startMonitoring: false, screenshotPreferences: policyDefaults)
+let policyNow = Date(timeIntervalSince1970: 2_000_000_000)
+func policyClip(_ id: String, daysAgo: Double, snippet: Bool = false) -> Clip {
+  Clip(id: id, title: id, text: id, kind: "text", source: "Test", date: policyNow.timeIntervalSince1970 - daysAgo * 86_400,
+    snippet: snippet, items: [["public.utf8-plain-text": Data(id.utf8)]], preview: nil)
+}
+policyBridge.archive.clips = [policyClip("fresh", daysAgo: 0.5), policyClip("week-old", daysAgo: 8), policyClip("old-snippet", daysAgo: 90, snippet: true)]
+policyBridge.historyPolicy = HistoryPolicy(limit: 200, retentionDays: 7)
+policyBridge.trim(now: policyNow)
+check(policyBridge.archive.clips.map(\.id) == ["fresh", "old-snippet"], "Keep history for 1 week removes older history but never snippets")
+policyBridge.archive.clips = (0..<150).map { policyClip("item-\($0)", daysAgo: Double($0) / 1000) }
+policyBridge.historyPolicy = HistoryPolicy(limit: 100, retentionDays: 0)
+policyBridge.trim(now: policyNow)
+check(policyBridge.archive.clips.count == 100 && policyBridge.archive.clips.first?.id == "item-0", "History size 100 keeps the newest 100 items")
+
+check(ClipboardBridge.webLink("https://www.linkedin.com/in/mrtarunsaraswat/") != nil, "the credit's profile link can be opened")
+check(ClipboardBridge.webLink("http://example.com") == nil && ClipboardBridge.webLink("file:///etc/hosts") == nil && ClipboardBridge.webLink("clipshelf://open") == nil, "openURL refuses non-https links, files and app schemes")
 
 let localGroup = "ABCDE12345.clipshelf"
 check(WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "ABCDE12345"), "macOS Team-ID group accepts its actual signing team")

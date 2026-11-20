@@ -65,61 +65,68 @@ class QuickItemRow extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
               child: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: tint.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(ShelfRadius.sm),
+                  // Images show their thumbnail where other rows show a
+                  // type icon, so the text beside it can describe them.
+                  if (item.preview != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        width: 56,
+                        height: 42,
+                        color: colors.surfaceHover,
+                        child: Image.memory(
+                          item.preview!,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                          errorBuilder: (_, error, stack) =>
+                              Icon(clipIcon(item), size: 17, color: tint),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: tint.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(ShelfRadius.sm),
+                      ),
+                      child: Icon(clipIcon(item), size: 17, color: tint),
                     ),
-                    child: Icon(clipIcon(item), size: 17, color: tint),
-                  ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: item.preview != null ? 10 : 12),
                   Expanded(
-                    child: item.preview != null
-                        ? Align(
-                            alignment: Alignment.centerLeft,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.memory(
-                                item.preview!,
-                                width: 96,
-                                height: 46,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, error, stack) => Text(
-                                  item.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                item.title.replaceAll('\n', ' '),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: ShelfType.body,
-                                  fontWeight: FontWeight.w500,
-                                  color: colors.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${item.source} · ${formatClipAge(item.date)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: ShelfType.caption,
-                                  color: colors.textTertiary,
-                                ),
-                              ),
-                            ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          item.title.replaceAll('\n', ' '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: ShelfType.body,
+                            fontWeight: FontWeight.w500,
+                            color: colors.textPrimary,
                           ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          [
+                            item.source,
+                            formatClipAge(item.date),
+                            if (item.pixelWidth > 0)
+                              '${item.pixelWidth} × ${item.pixelHeight}',
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: ShelfType.caption,
+                            color: colors.textTertiary,
+                            fontFeatures: ShelfType.tabular,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   if (index < 9)
                     Padding(

@@ -13,6 +13,9 @@ class ClipItem {
     required this.size,
     required List<String> formats,
     this.boardID = '',
+    this.sourceBundleID = '',
+    this.pixelWidth = 0,
+    this.pixelHeight = 0,
     Uint8List? preview,
   }) : formats = List.unmodifiable(formats),
        preview = preview == null
@@ -32,14 +35,26 @@ class ClipItem {
     size: data['size'] as int,
     formats: List<String>.from(data['formats'] as List),
     boardID: data['boardID'] as String? ?? '',
+    sourceBundleID: data['sourceBundleID'] as String? ?? '',
+    pixelWidth: data['pixelWidth'] as int? ?? 0,
+    pixelHeight: data['pixelHeight'] as int? ?? 0,
     preview: data['preview'] as Uint8List?,
   );
   final String id, title, text, kind, source, boardID;
+
+  /// App the copy came from (for its icon); empty for snippets and old items.
+  final String sourceBundleID;
+
+  /// Original image size in pixels; 0 when unknown.
+  final int pixelWidth, pixelHeight;
   final bool snippet;
   final DateTime date;
   final int size;
   final List<String> formats;
   final Uint8List? preview;
+
+  /// Text that is a URL with a scheme (https://…, mailto:…).
+  bool get isLink => Uri.tryParse(text.trim())?.hasScheme == true;
 
   bool matches(String query) => '$title $text $source ${formats.join(' ')}'
       .toLowerCase()

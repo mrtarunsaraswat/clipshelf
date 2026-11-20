@@ -4,6 +4,8 @@ import Carbon
 import ApplicationServices
 import CloudKit
 import WidgetKit
+import UniformTypeIdentifiers
+import CryptoKit
 
 // Keeps clipboard logic testable without accessing the user's system clipboard.
 protocol ClipboardAccess {
@@ -29,8 +31,66 @@ struct Clip: Codable {
   var items: [[String: Data]]
   var preview: Data?
   var boardID: String? = nil
+  /// Bundle ID of the app the copy came from, for its icon. Absent in older archives.
+  var sourceBundleID: String? = nil
+  /// Original image size in pixels, shown on image cards. Absent in older archives.
+  var pixelWidth: Int? = nil
+  var pixelHeight: Int? = nil
   var retained: Bool { snippet || boardID != nil }
+  /// Pasteboard types some apps regenerate on every copy (VS Code, Chrome and
+  /// other Chromium apps), which must not make a repeat copy look new.
+  static let volatileTypes: Set<String> = ["org.chromium.web-custom-data", "org.chromium.source-url",
+    "com.apple.webarchive", "com.microsoft.appbundleid"]
+  /// Same content as [other], ignoring per-copy metadata: text by its text,
+  /// files by path, images by their thumbnail, anything else by its data.
+  func sameContent(as other: Clip) -> Bool {
+    guard kind == other.kind else { return false }
+    switch kind {
+    case "text", "file": return !text.isEmpty && text == other.text
+    case "image":
+      if let preview = preview, let otherPreview = other.preview { return preview == otherPreview }
+      return items == other.items
+    default:
+      func stable(_ items: [[String: Data]]) -> [[String: Data]] {
+        items.map { $0.filter { !Self.volatileTypes.contains($0.key) } }
+      }
+      return stable(items) == stable(other.items)
+    }
+  }
+  /// Reads an encoded image's pixel size without decoding it.
+  static func pixelSize(of data: Data) -> (Int, Int)? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+      let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+      let width = properties[kCGImagePropertyPixelWidth] as? Int,
+      let height = properties[kCGImagePropertyPixelHeight] as? Int else { return nil }
+    return (width, height)
+  }
   var size: Int { items.reduce(0) { $0 + $1.values.reduce(0) { $0 + $1.count } } }
+}
+/// How much history to keep: an item count (with a storage budget that scales
+/// with it, 200 items → 100 MB) and an optional age limit.
+struct HistoryPolicy: Equatable {
+  static let limits = [100, 200, 500, 1000]
+  /// Days to keep history; 0 keeps it until the size limit removes it.
+  static let retentions = [0, 1, 7, 30]
+  var limit = 200
+  var retentionDays = 0
+  var byteBudget: Int { limit * 512 * 1024 }
+  func cutoff(now: Date) -> Double? {
+    retentionDays > 0 ? now.timeIntervalSince1970 - Double(retentionDays) * 86_400 : nil
+  }
+  static func load(from defaults: UserDefaults) -> HistoryPolicy {
+    var policy = HistoryPolicy()
+    let limit = defaults.integer(forKey: "historyLimit")
+    if limits.contains(limit) { policy.limit = limit }
+    let days = defaults.integer(forKey: "historyRetentionDays")
+    if retentions.contains(days) { policy.retentionDays = days }
+    return policy
+  }
+  func save(to defaults: UserDefaults) {
+    defaults.set(limit, forKey: "historyLimit")
+    defaults.set(retentionDays, forKey: "historyRetentionDays")
+  }
 }
 struct Pinboard: Codable {
   var id: String
@@ -61,6 +121,24 @@ struct Archive: Codable {
   var syncEnabled: Bool? = nil
 }
 
+/// Maps ⌘ plus a top-row digit to a quick-use index (⌘1 → 0 … ⌘9 → 8). Uses key
+/// codes, not characters, so layouts that need Shift for digits still work.
+enum QuickUseKey {
+  static let digitKeyCodes: [UInt16] = [
+    UInt16(kVK_ANSI_1), UInt16(kVK_ANSI_2), UInt16(kVK_ANSI_3), UInt16(kVK_ANSI_4), UInt16(kVK_ANSI_5),
+    UInt16(kVK_ANSI_6), UInt16(kVK_ANSI_7), UInt16(kVK_ANSI_8), UInt16(kVK_ANSI_9),
+  ]
+  static func index(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Int? {
+    let relevant = modifiers.intersection([.command, .shift, .option, .control])
+    guard relevant == .command else { return nil }
+    return digitKeyCodes.firstIndex(of: keyCode)
+  }
+  static func index(for event: NSEvent) -> Int? {
+    guard event.type == .keyDown else { return nil }
+    return index(keyCode: event.keyCode, modifiers: event.modifierFlags)
+  }
+}
+
 class MainFlutterWindow: NSPanel {
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
@@ -69,6 +147,15 @@ class MainFlutterWindow: NSPanel {
   /// window's contentViewController; keep it for first-responder handling.
   private(set) var flutterView: NSView?
   private var flutterController: FlutterViewController?
+  /// ⌘1–⌘9 must reach the panel even while Flutter's search field is the first
+  /// responder, where AppKit's text handling can swallow ⌘-number keys.
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    if let index = QuickUseKey.index(for: event) {
+      bridge?.quickUse(index)
+      return true
+    }
+    return super.performKeyEquivalent(with: event)
+  }
   /// Wraps [content] in the best native glass available.
   static func glassBackground(containing content: NSView) -> NSView {
     #if compiler(>=6.2)  // Xcode 26 SDK; older toolchains (e.g. CI) build the fallback only
@@ -233,7 +320,7 @@ final class ClipboardBridge: NSObject {
     InstallEventHandler(GetApplicationEventTarget(), { _, _, pointer in
       guard let pointer = pointer else { return OSStatus(eventNotHandledErr) }
       let bridge = Unmanaged<ClipboardBridge>.fromOpaque(pointer).takeUnretainedValue()
-      DispatchQueue.main.async { bridge.show() }
+      DispatchQueue.main.async { bridge.toggleShelf() }
       return noErr
     }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handler)
     let result = RegisterEventHotKey(UInt32(kVK_ANSI_V), UInt32(cmdKey | optionKey),
@@ -243,6 +330,7 @@ final class ClipboardBridge: NSObject {
       self?.refreshAccessibility()
       self?.capture()
       self?.refreshScreenshotFolderIfNeeded()
+      self?.expireOldHistory()
     }
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appActivated(_:)), name: NSWorkspace.didActivateApplicationNotification, object: nil)
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appResigned), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
@@ -377,9 +465,54 @@ final class ClipboardBridge: NSObject {
     let wasVisible = window?.isVisible == true
     panelGeneration += 1
     saveFloatingFrame()
-    window?.orderOut(nil)
+    if wasVisible, presentation == "shelf", let window = window {
+      slideShelfOut(window, generation: panelGeneration)
+    } else {
+      window?.orderOut(nil)
+    }
     stopOutsideClickMonitoring()
     if wasVisible { channel.invokeMethod("closed", arguments: nil) }
+  }
+  /// An https URL with a host, or nil. Guards the openURL channel call.
+  static func webLink(_ text: String) -> URL? {
+    guard let url = URL(string: text), url.scheme?.lowercased() == "https", url.host?.isEmpty == false else { return nil }
+    return url
+  }
+  /// ⌥⌘V opens the shelf, and closes it again when it is already showing.
+  @objc func toggleShelf() {
+    if presentation == "shelf", window?.isVisible == true { dismissPanel() } else { show() }
+  }
+  /// Where the shelf starts (opening) or ends (closing) its slide: a little
+  /// below its resting frame. With Reduce Motion it only fades.
+  static func shelfSlideFrame(_ frame: NSRect, reduceMotion: Bool) -> NSRect {
+    reduceMotion ? frame : frame.offsetBy(dx: 0, dy: -28)
+  }
+  private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+  func slideShelfIn(_ window: NSWindow) {
+    let target = window.frame
+    window.alphaValue = 0
+    window.setFrame(Self.shelfSlideFrame(target, reduceMotion: reduceMotion), display: false)
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0.22
+      context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+      window.animator().setFrame(target, display: true)
+      window.animator().alphaValue = 1
+    }
+  }
+  func slideShelfOut(_ window: NSWindow, generation: Int) {
+    let resting = window.frame
+    NSAnimationContext.runAnimationGroup({ context in
+      context.duration = 0.18
+      context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+      window.animator().setFrame(Self.shelfSlideFrame(resting, reduceMotion: reduceMotion), display: true)
+      window.animator().alphaValue = 0
+    }, completionHandler: { [weak self] in
+      // Reopened mid-animation: the newer session owns the window now.
+      guard let self = self, self.panelGeneration == generation else { return }
+      window.orderOut(nil)
+      window.alphaValue = 1
+      window.setFrame(resting, display: false)
+    })
   }
   func presentPanel() {
     panelGeneration += 1
@@ -405,7 +538,7 @@ final class ClipboardBridge: NSObject {
     showQuick()
   }
   static func quickFrame(anchor: NSRect, visible: NSRect) -> NSRect {
-    let width = min(440, visible.width - 16)
+    let width = min(360, visible.width - 16)  // menu-bar panel width
     let height = min(560, visible.height - 16)
     let x = min(max(anchor.midX - width / 2, visible.minX + 8), visible.maxX - width - 8)
     let y = max(visible.minY + 8, min(anchor.minY - height - 8, visible.maxY - height - 8))
@@ -424,7 +557,20 @@ final class ClipboardBridge: NSObject {
         window.setFrame(Self.quickFrame(anchor: anchor, visible: visible), display: true)
       }
     }
+    // A short fade-in: smoother, and it covers the frame Flutter needs to
+    // redraw the reopened panel.
+    let fadeIn = window?.isVisible != true
+    if fadeIn { window?.alphaValue = 0 }
     presentPanel()
+    if fadeIn, let window = window {
+      NSAnimationContext.runAnimationGroup { context in
+        context.duration = 0.12
+        context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        window.animator().alphaValue = 1
+      }
+    } else {
+      window?.alphaValue = 1
+    }
     channel.invokeMethod("opened", arguments: "quick")
     publish()
   }
@@ -440,8 +586,10 @@ final class ClipboardBridge: NSObject {
     if wasQuick, let window = window {
       window.setContentSize(NSSize(width: 1120, height: shelfHeight))
     }
+    let wasHidden = window?.isVisible != true
     positionShelf()
     presentPanel()
+    if wasHidden, let window = window { slideShelfIn(window) } else { window?.alphaValue = 1 }
     channel.invokeMethod("opened", arguments: "shelf")
     publish()
   }
@@ -554,6 +702,7 @@ final class ClipboardBridge: NSObject {
     return ["clips": archive.clips.map { clip -> [String: Any] in
       var value: [String: Any] = ["id": clip.id, "title": clip.title, "text": clip.text,
         "kind": clip.kind, "source": clip.source, "date": clip.date, "snippet": clip.snippet, "boardID": clip.boardID ?? "",
+        "sourceBundleID": clip.sourceBundleID ?? "", "pixelWidth": clip.pixelWidth ?? 0, "pixelHeight": clip.pixelHeight ?? 0,
         "size": clip.size, "formats": Array(Set(clip.items.flatMap { $0.keys })).sorted()]
       if let preview = clip.preview { value["preview"] = FlutterStandardTypedData(bytes: preview) }
       return value
@@ -563,12 +712,15 @@ final class ClipboardBridge: NSObject {
        "syncEnabled": archive.syncEnabled ?? false, "syncConfigured": !cloudIdentifier.isEmpty,
        "syncStatus": cloudStatus, "presentation": presentation,
        "floatingPinned": floating.pinned, "widgetConfigured": widgetStore.available,
-       "widgetSharing": widgetSharing,
+       "widgetSharing": widgetSharing, "linkPreviews": LinkPreviewLoader.enabled,
+       "historyLimit": historyPolicy.limit, "historyRetentionDays": historyPolicy.retentionDays,
+       "historyBytes": historyBytes, "historyByteBudget": historyPolicy.byteBudget,
        "screenshotsEnabled": screenshotsEnabled, "screenshotsFolder": screenshotFolderPath,
        "screenshotsStatus": screenshotStatus, "screenshotsWatching": screenshotWatching,
        "accentColor": Self.accentARGB(), "reduceTransparency": NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency]
   }
   func publish() { channel.invokeMethod("changed", arguments: state()) }
+  func quickUse(_ index: Int) { channel.invokeMethod("quickUse", arguments: index) }
   /// The user's macOS accent colour as 0xAARRGGBB, for the Flutter theme.
   static func accentARGB() -> Int {
     guard let color = NSColor.controlAccentColor.usingColorSpace(.sRGB) else { return 0xFF167D70 }
@@ -616,9 +768,14 @@ final class ClipboardBridge: NSObject {
     }
     let kind = file != nil ? "file" : image != nil ? "image" : text.isEmpty ? "other" : "text"
     let title = file.flatMap { URL(string: $0)?.lastPathComponent } ?? (text.isEmpty ? (kind == "image" ? "Copied image" : "Clipboard content") : String(text.prefix(120)))
-    let clip = Clip(id: UUID().uuidString, title: title, text: text, kind: kind,
-      source: NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown app",
-      date: Date().timeIntervalSince1970, snippet: false, items: items, preview: preview)
+    let sourceApp = NSWorkspace.shared.frontmostApplication
+    var clip = Clip(id: UUID().uuidString, title: title, text: text, kind: kind,
+      source: sourceApp?.localizedName ?? "Unknown app",
+      date: Date().timeIntervalSince1970, snippet: false, items: items, preview: preview,
+      sourceBundleID: sourceApp?.bundleIdentifier)
+    if let cgImage = image?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+      clip.pixelWidth = cgImage.width; clip.pixelHeight = cgImage.height
+    }
     if let image = image {
       let fingerprint = ScreenshotImage.fingerprint(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
       if let fingerprint = fingerprint, fingerprint == recentImageFingerprint,
@@ -627,16 +784,41 @@ final class ClipboardBridge: NSObject {
       }
       recentImageFingerprint = fingerprint; recentImageID = clip.id; recentImageDate = clip.date
     }
-    if let index = archive.clips.firstIndex(where: { !$0.retained && $0.items == items }) { archive.clips.remove(at: index) }
+    // Copying the same thing again moves it to the front instead of adding a duplicate.
+    if let index = archive.clips.firstIndex(where: { !$0.retained && $0.sameContent(as: clip) }) { archive.clips.remove(at: index) }
     archive.clips.insert(clip, at: 0)
     trim(); persist(); publish()
   }
-  func trim() {
-    while archive.clips.filter({ !$0.retained }).count > 200 || archive.clips.reduce(0, { $0 + $1.size }) > 100 * 1024 * 1024 {
-      guard let index = archive.clips.lastIndex(where: { !$0.retained }) else { break }
+  var historyPolicy: HistoryPolicy {
+    get { HistoryPolicy.load(from: screenshotPreferences) }
+    set { newValue.save(to: screenshotPreferences) }
+  }
+  /// Bytes used by history (snippets and pinned items have their own limits).
+  var historyBytes: Int { archive.clips.filter { !$0.retained }.reduce(0) { $0 + $1.size } }
+  /// Applies the history policy: drops items older than the retention period,
+  /// then the oldest items beyond the size limit or storage budget. Snippets
+  /// and pinned items are never removed here.
+  func trim(now: Date = Date()) {
+    let policy = historyPolicy
+    func remove(at index: Int) {
       lastSnapshot.removeValue(forKey: "clip-" + archive.clips[index].id)
       archive.clips.remove(at: index)
     }
+    if let cutoff = policy.cutoff(now: now) {
+      for index in archive.clips.indices.reversed() where !archive.clips[index].retained && archive.clips[index].date < cutoff {
+        remove(at: index)
+      }
+    }
+    while archive.clips.filter({ !$0.retained }).count > policy.limit || historyBytes > policy.byteBudget {
+      guard let index = archive.clips.lastIndex(where: { !$0.retained }) else { break }
+      remove(at: index)
+    }
+  }
+  /// Called on the capture timer: removes expired items while the app runs.
+  func expireOldHistory(now: Date = Date()) {
+    guard let cutoff = historyPolicy.cutoff(now: now),
+      archive.clips.contains(where: { !$0.retained && $0.date < cutoff }) else { return }
+    trim(now: now); persist(); publish()
   }
   func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
     let args = call.arguments as? [String: Any] ?? [:]
@@ -646,6 +828,32 @@ final class ClipboardBridge: NSObject {
       screenshotPreferences.set(args["value"] as? Bool ?? true, forKey: "copyScreenshots")
       configureScreenshots(); publish(); result(nil)
     case "screenshotFolder": chooseScreenshotFolder(result)
+    case "openURL":
+      // Only web links (the credit's profile link); never files or app schemes.
+      guard let url = (args["url"] as? String).flatMap(Self.webLink) else { result(false); return }
+      dismissPanel()
+      result(NSWorkspace.shared.open(url))
+    case "historyPolicy":
+      var policy = historyPolicy
+      if let limit = args["limit"] as? Int, HistoryPolicy.limits.contains(limit) { policy.limit = limit }
+      if let days = args["retentionDays"] as? Int, HistoryPolicy.retentions.contains(days) { policy.retentionDays = days }
+      historyPolicy = policy
+      trim(); persist(); publish(); result(nil)
+    case "linkPreviews":
+      LinkPreviewLoader.enabled = args["value"] as? Bool ?? false
+      publish(); result(nil)
+    case "appIcon":
+      result((args["bundleID"] as? String).flatMap(ClipIcons.app).map(FlutterStandardTypedData.init(bytes:)))
+    case "fileIcon":
+      result((args["path"] as? String).flatMap(ClipIcons.file).map(FlutterStandardTypedData.init(bytes:)))
+    case "linkPreview":
+      guard let url = args["url"] as? String else { result(nil); return }
+      LinkPreviewLoader.shared.preview(for: url) { preview in
+        guard let preview = preview else { result(nil); return }
+        var value: [String: Any] = ["title": preview.title]
+        if let image = preview.image { value["image"] = FlutterStandardTypedData(bytes: image) }
+        result(value)
+      }
     case "systemScreenshotFolder":
       screenshotPreferences.removeObject(forKey: "screenshotFolderBookmark")
       configureScreenshots(); publish(); result(nil)
@@ -928,5 +1136,173 @@ final class CloudSync {
   enum SyncError: LocalizedError {
     case invalidRecord
     var errorDescription: String? { "An iCloud item could not be read safely. Local items are unchanged." }
+  }
+}
+
+/// App and file icons as small PNGs for cards, cached for the session.
+enum ClipIcons {
+  private static var cache: [String: Data] = [:]
+  static func app(_ bundleID: String) -> Data? {
+    guard !bundleID.isEmpty else { return nil }
+    if let cached = cache["app:" + bundleID] { return cached }
+    guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+    return store("app:" + bundleID, NSWorkspace.shared.icon(forFile: url.path))
+  }
+  static func file(_ reference: String) -> Data? {
+    let path = URL(string: reference).flatMap { $0.isFileURL ? $0.path : nil } ?? reference
+    guard path.hasPrefix("/") else { return nil }
+    // Missing files still get their type's icon (zip, pdf, folder…).
+    let key = "file:" + (FileManager.default.fileExists(atPath: path) ? path : (path as NSString).pathExtension)
+    if let cached = cache[key] { return cached }
+    let icon = FileManager.default.fileExists(atPath: path)
+      ? NSWorkspace.shared.icon(forFile: path)
+      : NSWorkspace.shared.icon(for: UTType(filenameExtension: (path as NSString).pathExtension) ?? .data)
+    return store(key, icon)
+  }
+  static func png(_ image: NSImage, side: CGFloat = 64) -> Data? {
+    let size = NSSize(width: side, height: side)
+    guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(side), pixelsHigh: Int(side),
+      bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+      bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
+    rep.size = size
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    image.draw(in: NSRect(origin: .zero, size: size))
+    NSGraphicsContext.restoreGraphicsState()
+    return rep.representation(using: .png, properties: [:])
+  }
+  private static func store(_ key: String, _ image: NSImage) -> Data? {
+    let data = png(image)
+    if let data = data { cache[key] = data }
+    return data
+  }
+}
+
+/// Opt-in link previews: the page's title and share image (Open Graph /
+/// Twitter card / <title>). Only http(s), no cookies, size and time limits,
+/// cached on disk under Application Support/ClipShelf/LinkPreviews.
+final class LinkPreviewLoader {
+  struct Preview { let title: String; let image: Data? }
+  static let shared = LinkPreviewLoader()
+  static var enabled: Bool {
+    get { UserDefaults.standard.bool(forKey: "linkPreviews") }
+    set { UserDefaults.standard.set(newValue, forKey: "linkPreviews") }
+  }
+  private let session: URLSession = {
+    let config = URLSessionConfiguration.ephemeral
+    config.timeoutIntervalForRequest = 8
+    config.timeoutIntervalForResource = 15
+    config.httpShouldSetCookies = false
+    config.httpCookieAcceptPolicy = .never
+    config.urlCache = nil
+    return URLSession(configuration: config)
+  }()
+  private var memory: [String: Preview] = [:]
+  private var pending: [String: [(Preview?) -> Void]] = [:]
+  private let directory: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    .appendingPathComponent("ClipShelf/LinkPreviews", isDirectory: true)
+
+  static func webURL(_ text: String) -> URL? {
+    guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+      let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http", url.host != nil else { return nil }
+    return url
+  }
+  /// Calls back on the main queue; nil when disabled, not a web link, or nothing usable was found.
+  func preview(for text: String, completion: @escaping (Preview?) -> Void) {
+    guard Self.enabled, let url = Self.webURL(text) else { completion(nil); return }
+    let key = url.absoluteString
+    if let cached = memory[key] ?? readDisk(key) { memory[key] = cached; completion(cached); return }
+    if pending[key] != nil { pending[key]?.append(completion); return }
+    pending[key] = [completion]
+    fetch(url, limit: 512 * 1024) { [weak self] html, finalURL in
+      guard let self = self else { return }
+      guard let html = html.flatMap({ String(data: $0, encoding: .utf8) ?? String(data: $0, encoding: .isoLatin1) }) else {
+        self.finish(key, nil); return
+      }
+      let meta = Self.parse(html, base: finalURL ?? url)
+      guard let title = meta.title ?? meta.image.map({ _ in url.host ?? "" }) else { self.finish(key, nil); return }
+      guard let imageURL = meta.image else { self.finish(key, Preview(title: title, image: nil)); return }
+      self.fetch(imageURL, limit: 4 * 1024 * 1024) { data, _ in
+        self.finish(key, Preview(title: title, image: data.flatMap { Self.thumbnail($0) }))
+      }
+    }
+  }
+  private func finish(_ key: String, _ preview: Preview?) {
+    DispatchQueue.main.async {
+      if let preview = preview { self.memory[key] = preview; self.writeDisk(key, preview) }
+      let callbacks = self.pending.removeValue(forKey: key) ?? []
+      callbacks.forEach { $0(preview) }
+    }
+  }
+  private func fetch(_ url: URL, limit: Int, completion: @escaping (Data?, URL?) -> Void) {
+    guard Self.webURL(url.absoluteString) != nil else { completion(nil, nil); return }
+    var request = URLRequest(url: url)
+    request.setValue("Mozilla/5.0 (Macintosh) ClipShelf link preview", forHTTPHeaderField: "User-Agent")
+    session.dataTask(with: request) { data, response, _ in
+      guard let data = data, data.count <= limit, let http = response as? HTTPURLResponse,
+        (200..<300).contains(http.statusCode) else { completion(nil, nil); return }
+      completion(data, http.url)
+    }.resume()
+  }
+  static func parse(_ html: String, base: URL) -> (title: String?, image: URL?) {
+    let head = String(html.prefix(200_000))
+    func meta(_ names: [String]) -> String? {
+      for name in names {
+        for pattern in [
+          "<meta[^>]+(?:property|name)=[\"']\(name)[\"'][^>]*content=[\"']([^\"']+)[\"']",
+          "<meta[^>]+content=[\"']([^\"']+)[\"'][^>]*(?:property|name)=[\"']\(name)[\"']",
+        ] {
+          if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+            let match = regex.firstMatch(in: head, range: NSRange(head.startIndex..., in: head)),
+            let range = Range(match.range(at: 1), in: head) {
+            return decode(String(head[range]))
+          }
+        }
+      }
+      return nil
+    }
+    var title = meta(["og:title", "twitter:title"])
+    if title == nil, let regex = try? NSRegularExpression(pattern: "<title[^>]*>([^<]+)</title>", options: [.caseInsensitive]),
+      let match = regex.firstMatch(in: head, range: NSRange(head.startIndex..., in: head)),
+      let range = Range(match.range(at: 1), in: head) {
+      title = decode(String(head[range]))
+    }
+    let image = meta(["og:image:secure_url", "og:image", "twitter:image", "twitter:image:src"])
+      .flatMap { URL(string: $0, relativeTo: base)?.absoluteURL }
+    let cleaned = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+    return (cleaned?.isEmpty == false ? String(cleaned!.prefix(200)) : nil, image)
+  }
+  static func decode(_ text: String) -> String {
+    var value = text
+    for (entity, character) in [("&amp;", "&"), ("&quot;", "\""), ("&#39;", "'"), ("&#x27;", "'"), ("&apos;", "'"),
+      ("&lt;", "<"), ("&gt;", ">"), ("&nbsp;", " ")] {
+      value = value.replacingOccurrences(of: entity, with: character)
+    }
+    return value
+  }
+  /// Re-encodes the share image as a bounded JPEG; also rejects non-images.
+  static func thumbnail(_ data: Data) -> Data? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+      let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceThumbnailMaxPixelSize: 720,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+      ] as CFDictionary) else { return nil }
+    return NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: 0.8])
+  }
+  private func name(_ key: String) -> String {
+    SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+  }
+  private func readDisk(_ key: String) -> Preview? {
+    let base = directory.appendingPathComponent(name(key))
+    guard let title = try? String(contentsOf: base.appendingPathExtension("txt"), encoding: .utf8) else { return nil }
+    return Preview(title: title, image: try? Data(contentsOf: base.appendingPathExtension("jpg")))
+  }
+  private func writeDisk(_ key: String, _ preview: Preview) {
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+      attributes: [.posixPermissions: 0o700])
+    let base = directory.appendingPathComponent(name(key))
+    try? preview.title.write(to: base.appendingPathExtension("txt"), atomically: true, encoding: .utf8)
+    if let image = preview.image { try? image.write(to: base.appendingPathExtension("jpg"), options: .atomic) }
   }
 }

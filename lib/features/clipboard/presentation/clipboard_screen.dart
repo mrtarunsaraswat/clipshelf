@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/overlay_route_tracker.dart';
+
 import '../application/clipboard_controller.dart';
 import '../application/library_view_controller.dart';
 import '../application/panel_session.dart';
@@ -38,13 +40,50 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
         ref.read(clipboardSnapshotProvider).presentation !=
         PanelPresentation.shelf;
     _scroll.animateTo(
-      (index * (quick ? 80.0 : 262.0)).clamp(
+      // Quick rows are 64 pt plus a 2 pt gap; shelf cards 248 pt plus 14.
+      (index * (quick ? 66.0 : 262.0)).clamp(
         0,
         _scroll.position.maxScrollExtent,
       ),
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,
     );
+  }
+
+  void _openSearch() {
+    ref.read(libraryViewProvider.notifier).openSearch();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
+  }
+
+  /// On the shelf, typing a letter while the cards have focus opens search
+  /// with that letter, so there is no need to click the search button first.
+  KeyEventResult _typeToSearch(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || !node.hasPrimaryFocus) {
+      return KeyEventResult.ignored;
+    }
+    final character = event.character;
+    final keyboard = HardwareKeyboard.instance;
+    if (character == null ||
+        character.trim().isEmpty ||
+        character.codeUnitAt(0) < 0x20 ||
+        keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return KeyEventResult.ignored;
+    }
+    _search.value = TextEditingValue(
+      text: character,
+      selection: TextSelection.collapsed(offset: character.length),
+    );
+    ref.read(libraryViewProvider.notifier)
+      ..search(character)
+      ..openSearch();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
+    return KeyEventResult.handled;
   }
 
   @override
@@ -59,22 +98,44 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
       }
     });
     ref.listen(panelSessionProvider, (previous, next) {
-      // Menus belong to the visible panel session. Keep Preferences/editor dialogs,
-      // but never reveal a menu left behind when the native window was hidden.
-      Navigator.of(context)
-          .popUntil((route) => route is! PopupRoute || route is DialogRoute);
+      // A panel session starts at the clipboard: menus, Preferences,
+      // previews and confirmations go. Editors keep their drafts, and
+      // Preferences stays when it sent the user to System Settings. They are
+      // removed instantly when the panel hides, so reopening never shows a
+      // stale frame of them; reopening repeats it in case a close was missed.
+      final keepPreferences = ref.read(returnToPreferencesProvider);
+      ref
+          .read(overlayRouteTrackerProvider)
+          .removeWhere(
+            (route) =>
+                route.settings.name != editorDialogRoute &&
+                !(keepPreferences &&
+                    route.settings.name == preferencesDialogRoute),
+          );
       if (!next.visible) {
         _searchFocus.unfocus();
         return;
       }
+      ref.read(returnToPreferencesProvider.notifier).set(false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted ||
             ref.read(panelSessionProvider).sequence != next.sequence) {
           return;
         }
-        _searchFocus.requestFocus();
+        // The panels always show search; the shelf only once it is opened.
+        final searchVisible =
+            next.presentation != PanelPresentation.shelf ||
+            ref.read(libraryViewProvider).searchOpen;
+        (searchVisible ? _searchFocus : _libraryFocus).requestFocus();
         if (_scroll.hasClients) _scroll.jumpTo(0);
       });
+    });
+    ref.listen(quickUseRequestProvider, (previous, request) {
+      if (request == null) return;
+      final visible = ref.read(visibleItemsProvider);
+      if (request.index >= 0 && request.index < visible.length) {
+        actions.paste(visible[request.index]);
+      }
     });
     final items = ref.watch(visibleItemsProvider);
     final current = ref.watch(selectedItemProvider);
@@ -97,8 +158,7 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): actions.hide,
-        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () =>
-            _searchFocus.requestFocus(),
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _openSearch,
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true): () =>
             actions.showSnippet(),
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true):
@@ -121,6 +181,7 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
       child: Focus(
         focusNode: _libraryFocus,
         autofocus: true,
+        onKeyEvent: _typeToSearch,
         child: quick
             ? QuickPanel(
                 actions: actions,
