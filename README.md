@@ -13,37 +13,9 @@ A fast, private clipboard manager that lives in your Mac's menu bar.
 ![Apple Silicon + Intel](https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-555)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-<img src="preview.png" alt="ClipShelf's shelf of recent clips along the bottom of the screen" width="820">
+<img src="screenshots/preview.png" alt="ClipShelf's shelf of recent clips along the bottom of the screen" width="820">
 
 </div>
-
-## ✨ Why ClipShelf
-
-- **Never lose a copy.** Text, links, images, rich text, and files are saved automatically.
-- **See what you copied.** Each card shows the app it came from, its size (characters or pixels), and, if you turn it on, a preview of the web page behind a link.
-- **Paste in one click.** Pick a clip and it goes straight into the app you were using.
-- **Built for the keyboard.** <kbd>⌥</kbd><kbd>⌘</kbd><kbd>V</kbd> to open, <kbd>⌘</kbd><kbd>1</kbd>–<kbd>9</kbd> to paste.
-- **Find anything fast.** Start typing to search, and narrow it down with filters for type (Link, Image…), date (Today, Last week…), or app (Safari, Mail…).
-- **Keep what matters.** Save snippets and sort clips into colored pinboards: just drag a card onto a pinboard.
-- **Screenshots included.** Screenshots you take are copied and saved to your history.
-- **Favorites on your desktop.** A widget in three sizes puts your snippets or a pinboard one click away, with a Pause button for capture (macOS 14+).
-- **Looks at home on your Mac.** Liquid Glass on macOS 26, a frosted window on earlier versions, and light or dark to match macOS.
-- **Private by design.** Everything stays on your Mac. No account, no server, no tracking.
-
-## 🖼️ A look inside
-
-<table>
-  <tr>
-    <td align="center" width="50%"><img src="menu-bar-preview.png" alt="Menu-bar panel" width="300"><br><b>Menu-bar panel</b><br>Search and paste without leaving your app</td>
-    <td align="center" width="50%"><img src="floating-preview.png" alt="Floating panel" width="300"><br><b>Floating panel</b><br>Pin it next to your work</td>
-  </tr>
-  <tr>
-    <td align="center" width="50%"><img src="widget-medium-preview.png" alt="Desktop widget" width="300"><br><b>Desktop widget</b><br>Copy a snippet or pinboard item in one click</td>
-    <td align="center" width="50%"><img src="widget-large-dark-preview.png" alt="Large desktop widget in dark mode" width="300"><br><b>Large widget, dark mode</b><br>Up to 12 favorites</td>
-  </tr>
-</table>
-
-<p align="center"><img src="preview-dark.png" alt="The shelf in dark mode" width="820"><br><b>Dark mode</b> follows your Mac.</p>
 
 ## 🚀 Install
 
@@ -73,6 +45,34 @@ Want to verify the download? `shasum -a 256 -c ClipShelf-<version>.dmg.sha256`
 Open **System Settings → Privacy & Security → Accessibility** and turn on **ClipShelf**. After an update, remove the old ClipShelf entry and allow it again. Without this access, ClipShelf still copies, and you paste with <kbd>⌘</kbd><kbd>V</kbd>.
 
 </details>
+
+## ✨ Why ClipShelf
+
+- **Never lose a copy.** Text, links, images, rich text, and files are saved automatically.
+- **See what you copied.** Each card shows the app it came from, its size (characters or pixels), and, if you turn it on, a preview of the web page behind a link.
+- **Paste in one click.** Pick a clip and it goes straight into the app you were using.
+- **Built for the keyboard.** <kbd>⌥</kbd><kbd>⌘</kbd><kbd>V</kbd> to open, <kbd>⌘</kbd><kbd>1</kbd>–<kbd>9</kbd> to paste.
+- **Find anything fast.** Start typing to search, and narrow it down with filters for type (Link, Image…), date (Today, Last week…), or app (Safari, Mail…).
+- **Keep what matters.** Save snippets and sort clips into colored pinboards: just drag a card onto a pinboard.
+- **Screenshots included.** Screenshots you take are copied and saved to your history.
+- **Favorites on your desktop.** A widget in three sizes puts your snippets or a pinboard one click away, with a Pause button for capture (macOS 14+).
+- **Looks at home on your Mac.** Liquid Glass on macOS 26, a frosted window on earlier versions, and light or dark to match macOS.
+- **Private by design.** Everything stays on your Mac. No account, no server, no tracking.
+
+## 🖼️ A look inside
+
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="screenshots/menu-bar-preview.png" alt="Menu-bar panel" width="300"><br><b>Menu-bar panel</b><br>Search and paste without leaving your app</td>
+    <td align="center" width="50%"><img src="screenshots/floating-preview.png" alt="Floating panel" width="300"><br><b>Floating panel</b><br>Pin it next to your work</td>
+  </tr>
+  <tr>
+    <td align="center" width="50%"><img src="screenshots/widget-medium-preview.png" alt="Desktop widget" width="300"><br><b>Desktop widget</b><br>Copy a snippet or pinboard item in one click</td>
+    <td align="center" width="50%"><img src="screenshots/widget-large-dark-preview.png" alt="Large desktop widget in dark mode" width="300"><br><b>Large widget, dark mode</b><br>Up to 12 favorites</td>
+  </tr>
+</table>
+
+<p align="center"><img src="screenshots/preview-dark.png" alt="The shelf in dark mode" width="820"><br><b>Dark mode</b> follows your Mac.</p>
 
 ## ⌨️ Shortcuts
 

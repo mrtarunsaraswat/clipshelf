@@ -53,7 +53,7 @@ Version 1.5.0 adds automatic screenshot copying and supports two local build pat
 
 **iCloud remains disabled** until its own CloudKit provisioning is configured. Public Developer ID signing/notarization and two-Mac sync are still unverified. The user confirmed the desktop Favorites widget displays text and works after installation at a single stable app path.
 
-`preview.png` (in the repository root) renders the real Flutter interface with sample history, not private user data.
+`screenshots/preview.png` renders the real Flutter interface with sample history, not private user data.
 
 ### Menu dismissal fix (1.4.1)
 

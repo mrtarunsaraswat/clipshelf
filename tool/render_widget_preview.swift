@@ -45,7 +45,7 @@ struct WidgetPreviewRenderer {
       .environment(\.colorScheme, .light)
     let pausedRenderer = ImageRenderer(content: pausedView); pausedRenderer.scale = 2
     if let image = pausedRenderer.cgImage, let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
-      try data.write(to: URL(fileURLWithPath: "widget-medium-paused-preview.png"))
+      try data.write(to: URL(fileURLWithPath: "screenshots/widget-medium-paused-preview.png"))
     }
     for (name, family, width, previews, scheme, copied) in variants {
       let shown = family == .systemLarge ? WidgetCollection(id: "snippets", name: "Snippets", items: samples + more, total: 12) : collection
@@ -59,7 +59,7 @@ struct WidgetPreviewRenderer {
         .environment(\.colorScheme, scheme)
       let renderer = ImageRenderer(content: content); renderer.scale = 2
       guard let image = renderer.cgImage, let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { fatalError("Could not render widget preview") }
-      try data.write(to: URL(fileURLWithPath: "widget-\(name)-preview.png"))
+      try data.write(to: URL(fileURLWithPath: "screenshots/widget-\(name)-preview.png"))
     }
   }
 }
