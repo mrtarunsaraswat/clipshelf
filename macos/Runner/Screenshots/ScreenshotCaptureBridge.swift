@@ -78,9 +78,10 @@ extension ClipboardBridge {
       Date().timeIntervalSince1970 - recentImageDate < 15, let id = recentImageID {
       archive.clips.removeAll { $0.id == id && !$0.retained }
     }
-    let clip = Clip(id: UUID().uuidString, title: image.file.url.lastPathComponent, text: "", kind: "image",
+    var clip = Clip(id: UUID().uuidString, title: image.file.url.lastPathComponent, text: "", kind: "image",
       source: "Screenshot", date: image.file.created.timeIntervalSince1970, snippet: false,
       items: [[NSPasteboard.PasteboardType.png.rawValue: image.png]], preview: image.preview)
+    if let (width, height) = Clip.pixelSize(of: image.png) { clip.pixelWidth = width; clip.pixelHeight = height }
     let index = archive.clips.firstIndex { $0.date < clip.date } ?? archive.clips.endIndex
     archive.clips.insert(clip, at: index)
     recentImageFingerprint = image.fingerprint; recentImageID = clip.id; recentImageDate = Date().timeIntervalSince1970

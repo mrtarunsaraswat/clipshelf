@@ -6,6 +6,7 @@ import 'package:clipshelf/app/widgets/settings_group.dart';
 import '../../screenshots/presentation/screenshot_settings_section.dart';
 
 import 'package:clipshelf/features/clipboard/application/clipboard_controller.dart';
+import 'package:clipshelf/features/clipboard/data/clip_media.dart';
 import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart';
 
 class SettingsView extends ConsumerWidget {
@@ -158,6 +159,21 @@ class SettingsView extends ConsumerWidget {
           title: 'History',
           footer: 'Local history is saved without app-level encryption. With sync enabled, items also go to your private iCloud database. Concealed and transient copies are skipped; apps that do not mark secrets may still have them captured. Pause before copying sensitive material.',
           children: [
+            SwitchListTile(
+              contentPadding: settingsRowPadding,
+              secondary: SettingsIcon(
+                Icons.link_rounded,
+                color: colors.kindLink,
+              ),
+              title: const Text('Show link previews'),
+              subtitle: Text(
+                'Load the title and image of links you copy. ClipShelf then contacts that website; nothing is sent anywhere else. Off by default.',
+                style: subtitle,
+              ),
+              value: snapshot.linkPreviews,
+              onChanged: (value) =>
+                  ref.read(clipMediaProvider).setLinkPreviews(value),
+            ),
             ListTile(
               contentPadding: settingsRowPadding,
               leading: SettingsIcon(

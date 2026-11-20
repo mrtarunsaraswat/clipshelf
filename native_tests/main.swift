@@ -250,6 +250,29 @@ check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_1), modifiers: [.command, .shif
 check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_1), modifiers: []) == nil, "a bare 1 is typed into search, not quick use")
 check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_0), modifiers: .command) == nil, "⌘0 is not a quick-use key")
 
+let pageBase = URL(string: "https://example.com/blog/post")!
+let ogPage = """
+<html><head><title>Fallback title</title>
+<meta content="/img/share.png" property="og:image">
+<meta property="og:title" content="Design &amp; Systems">
+</head></html>
+"""
+let parsed = LinkPreviewLoader.parse(ogPage, base: pageBase)
+check(parsed.title == "Design & Systems" && parsed.image?.absoluteString == "https://example.com/img/share.png", "link preview reads Open Graph title and resolves a relative image in either attribute order")
+let titleOnly = LinkPreviewLoader.parse("<html><title> Plain page </title></html>", base: pageBase)
+check(titleOnly.title == "Plain page" && titleOnly.image == nil, "link preview falls back to the page <title>")
+check(LinkPreviewLoader.webURL("https://flutter.dev") != nil && LinkPreviewLoader.webURL("file:///etc/passwd") == nil && LinkPreviewLoader.webURL("mailto:a@b.c") == nil, "link previews only fetch http(s) pages")
+let wasEnabled = LinkPreviewLoader.enabled
+LinkPreviewLoader.enabled = false
+var disabledResult: LinkPreviewLoader.Preview?? = .none
+LinkPreviewLoader.shared.preview(for: "https://example.com") { disabledResult = .some($0) }
+check(disabledResult != nil && disabledResult! == nil, "link previews make no request while the switch is off")
+LinkPreviewLoader.enabled = wasEnabled
+let sizeRep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 30, pixelsHigh: 20, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+let sizedPNG = sizeRep.representation(using: .png, properties: [:])!
+check(Clip.pixelSize(of: sizedPNG).map { $0 == (30, 20) } == true, "image cards read the original pixel size")
+check(ClipIcons.file("/nonexistent/backup.zip") != nil, "file cards get a type icon even when the file is gone")
+
 let localGroup = "ABCDE12345.clipshelf"
 check(WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "ABCDE12345"), "macOS Team-ID group accepts its actual signing team")
 check(!WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "OTHER12345"), "macOS Team-ID group rejects a different signer")

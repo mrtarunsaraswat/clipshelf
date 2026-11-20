@@ -20,7 +20,7 @@ Color cardColor(ClipItem item, List<Pinboard> boards, ShelfColors colors) {
   return colors.kindText;
 }
 
-bool isLink(ClipItem item) => Uri.tryParse(item.text.trim())?.hasScheme == true;
+bool isLink(ClipItem item) => item.isLink;
 
 IconData clipIcon(ClipItem item) => item.snippet
     ? Icons.bookmark_outline

@@ -8,6 +8,8 @@ import 'package:clipshelf/features/clipboard/application/library_view_controller
 import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart';
 
 import '../../domain/clipboard_snapshot.dart';
+import 'animated_clip_list.dart';
+import 'smart_search_field.dart';
 import 'quick_item_row.dart';
 import 'empty_library.dart';
 
@@ -31,7 +33,6 @@ class QuickPanel extends ConsumerWidget {
     final items = ref.watch(visibleItemsProvider);
     final current = ref.watch(selectedItemProvider);
     final section = view.collection.key;
-    final query = view.query;
     final boards = snapshot.boards;
     final paused = snapshot.paused;
     final accessibility = snapshot.accessibility;
@@ -171,35 +172,14 @@ class QuickPanel extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SizedBox(
+            child: SmartSearchField(
+              controller: search,
+              focusNode: searchFocus,
               height: 40,
-              child: TextField(
-                controller: search,
-                focusNode: searchFocus,
-                onChanged: (value) => viewController.search(value),
-                onSubmitted: (_) {
-                  if (current != null) actions.paste(current);
-                },
-                decoration: InputDecoration(
-                  hintText: 'Search clipboard history',
-                  hintStyle: const TextStyle(fontSize: 12),
-                  prefixIcon: const Icon(Icons.search, size: 18),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  suffixIcon: query.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear search',
-                          onPressed: () {
-                            search.clear();
-                            viewController.search('');
-                          },
-                          icon: const Icon(Icons.close, size: 15),
-                        ),
-                ),
-              ),
+              hintText: 'Search clipboard history',
+              onSubmitted: () {
+                if (current != null) actions.paste(current);
+              },
             ),
           ),
           Padding(
@@ -307,22 +287,22 @@ class QuickPanel extends ConsumerWidget {
                 ? const EmptyLibrary()
                 : Scrollbar(
                     controller: listScroll,
-                    child: ListView.separated(
+                    child: AnimatedClipList(
+                      items: items,
                       controller: listScroll,
+                      axis: Axis.vertical,
+                      spacing: 2,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 6,
                       ),
-                      itemCount: items.length,
-                      separatorBuilder: (_, index) => const SizedBox(height: 2),
-                      itemBuilder: (context, index) => QuickItemRow(
-                        item: items[index],
+                      itemBuilder: (context, item, index) => QuickItemRow(
+                        item: item,
                         index: index,
-                        active: current?.id == items[index].id,
+                        active: current?.id == item.id,
                         actions: actions,
                         boards: boards,
-                        onSelected: () =>
-                            viewController.select(items[index].id),
+                        onSelected: () => viewController.select(item.id),
                       ),
                     ),
                   ),

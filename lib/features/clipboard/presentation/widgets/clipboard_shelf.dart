@@ -8,6 +8,8 @@ import 'package:clipshelf/features/clipboard/application/library_view_controller
 import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart';
 import 'package:clipshelf/features/clipboard/presentation/clipboard_style.dart';
 
+import 'animated_clip_list.dart';
+import 'smart_search_field.dart';
 import 'clipboard_card.dart';
 import 'collection_tab.dart';
 import 'empty_library.dart';
@@ -33,7 +35,6 @@ class ClipboardShelf extends ConsumerWidget {
     final selectedItem = ref.watch(selectedItemProvider);
     final current = ref.watch(selectedItemProvider);
     final filter = view.filter.label;
-    final query = view.query;
     final boards = snapshot.boards;
     final paused = snapshot.paused;
     final warning = snapshot.warning;
@@ -209,43 +210,16 @@ class ClipboardShelf extends ConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: SizedBox(
-                    height: 36,
-                    child: TextField(
-                      controller: search,
-                      focusNode: searchFocus,
-                      onChanged: (value) => viewController.search(value),
-                      onSubmitted: (_) {
-                        if (current != null) actions.paste(current);
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Search your clipboard…',
-                        hintStyle: TextStyle(
-                          fontSize: ShelfType.body,
-                          color: colors.textTertiary,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        prefixIcon: const Icon(Icons.search, size: 17),
-                        suffixIconConstraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 20,
-                        ),
-                        suffixIcon: query.isNotEmpty
-                            ? IconButton(
-                                onPressed: () {
-                                  search.clear();
-                                  viewController.search('');
-                                },
-                                icon: const Icon(Icons.close, size: 15),
-                              )
-                            : const Padding(
-                                padding: EdgeInsets.only(right: 10),
-                                child: Keycap('⌘F', dense: true),
-                              ),
-                      ),
+                  child: SmartSearchField(
+                    controller: search,
+                    focusNode: searchFocus,
+                    hintText: 'Search your clipboard…',
+                    onSubmitted: () {
+                      if (current != null) actions.paste(current);
+                    },
+                    suffixIcon: const Padding(
+                      padding: EdgeInsets.only(right: 10),
+                      child: Keycap('⌘F', dense: true),
                     ),
                   ),
                 ),
@@ -333,27 +307,21 @@ class ClipboardShelf extends ConsumerWidget {
                   : Scrollbar(
                       controller: listScroll,
                       thumbVisibility: true,
-                      child: ListView.separated(
+                      child: AnimatedClipList(
+                        items: items,
                         controller: listScroll,
-                        scrollDirection: Axis.horizontal,
+                        extent: 248,
                         padding: const EdgeInsets.fromLTRB(2, 2, 2, 16),
-                        clipBehavior: Clip.none,
-                        itemCount: items.length,
-                        separatorBuilder: (_, index) =>
-                            const SizedBox(width: 14),
-                        itemBuilder: (context, index) => SizedBox(
-                          width: 248,
-                          child: ClipboardCard(
-                            item: items[index],
-                            index: index,
-                            active: selectedItem?.id == items[index].id,
-                            boards: boards,
-                            actions: actions,
-                            onSelected: () {
-                              viewController.select(items[index].id);
-                              libraryFocus.requestFocus();
-                            },
-                          ),
+                        itemBuilder: (context, item, index) => ClipboardCard(
+                          item: item,
+                          index: index,
+                          active: selectedItem?.id == item.id,
+                          boards: boards,
+                          actions: actions,
+                          onSelected: () {
+                            viewController.select(item.id);
+                            libraryFocus.requestFocus();
+                          },
                         ),
                       ),
                     ),

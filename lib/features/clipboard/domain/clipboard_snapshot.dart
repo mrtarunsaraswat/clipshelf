@@ -47,6 +47,7 @@ class ClipboardSnapshot {
     this.sync = const SyncStatus(),
     this.accentColor,
     this.reduceTransparency = false,
+    this.linkPreviews = false,
   }) : clips = List.unmodifiable(clips),
        boards = List.unmodifiable(boards);
 
@@ -73,6 +74,7 @@ class ClipboardSnapshot {
         ),
         accentColor: data['accentColor'] as int?,
         reduceTransparency: data['reduceTransparency'] == true,
+        linkPreviews: data['linkPreviews'] == true,
       );
   final List<ClipItem> clips;
   final List<Pinboard> boards;
@@ -92,6 +94,9 @@ class ClipboardSnapshot {
   /// macOS Accessibility → Display → Reduce transparency.
   final bool reduceTransparency;
 
+  /// Opt-in: load copied links' page titles and images.
+  final bool linkPreviews;
+
   ClipboardSnapshot withWarning(String value) => ClipboardSnapshot(
     screenshots: screenshots,
     floatingPinned: floatingPinned,
@@ -106,6 +111,7 @@ class ClipboardSnapshot {
     warning: value,
     accentColor: accentColor,
     reduceTransparency: reduceTransparency,
+    linkPreviews: linkPreviews,
   );
 }
 

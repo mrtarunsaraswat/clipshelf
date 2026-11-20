@@ -4,6 +4,8 @@ import Carbon
 import ApplicationServices
 import CloudKit
 import WidgetKit
+import UniformTypeIdentifiers
+import CryptoKit
 
 // Keeps clipboard logic testable without accessing the user's system clipboard.
 protocol ClipboardAccess {
@@ -29,7 +31,20 @@ struct Clip: Codable {
   var items: [[String: Data]]
   var preview: Data?
   var boardID: String? = nil
+  /// Bundle ID of the app the copy came from, for its icon. Absent in older archives.
+  var sourceBundleID: String? = nil
+  /// Original image size in pixels, shown on image cards. Absent in older archives.
+  var pixelWidth: Int? = nil
+  var pixelHeight: Int? = nil
   var retained: Bool { snippet || boardID != nil }
+  /// Reads an encoded image's pixel size without decoding it.
+  static func pixelSize(of data: Data) -> (Int, Int)? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+      let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+      let width = properties[kCGImagePropertyPixelWidth] as? Int,
+      let height = properties[kCGImagePropertyPixelHeight] as? Int else { return nil }
+    return (width, height)
+  }
   var size: Int { items.reduce(0) { $0 + $1.values.reduce(0) { $0 + $1.count } } }
 }
 struct Pinboard: Codable {
@@ -567,6 +582,7 @@ final class ClipboardBridge: NSObject {
     return ["clips": archive.clips.map { clip -> [String: Any] in
       var value: [String: Any] = ["id": clip.id, "title": clip.title, "text": clip.text,
         "kind": clip.kind, "source": clip.source, "date": clip.date, "snippet": clip.snippet, "boardID": clip.boardID ?? "",
+        "sourceBundleID": clip.sourceBundleID ?? "", "pixelWidth": clip.pixelWidth ?? 0, "pixelHeight": clip.pixelHeight ?? 0,
         "size": clip.size, "formats": Array(Set(clip.items.flatMap { $0.keys })).sorted()]
       if let preview = clip.preview { value["preview"] = FlutterStandardTypedData(bytes: preview) }
       return value
@@ -576,7 +592,7 @@ final class ClipboardBridge: NSObject {
        "syncEnabled": archive.syncEnabled ?? false, "syncConfigured": !cloudIdentifier.isEmpty,
        "syncStatus": cloudStatus, "presentation": presentation,
        "floatingPinned": floating.pinned, "widgetConfigured": widgetStore.available,
-       "widgetSharing": widgetSharing,
+       "widgetSharing": widgetSharing, "linkPreviews": LinkPreviewLoader.enabled,
        "screenshotsEnabled": screenshotsEnabled, "screenshotsFolder": screenshotFolderPath,
        "screenshotsStatus": screenshotStatus, "screenshotsWatching": screenshotWatching,
        "accentColor": Self.accentARGB(), "reduceTransparency": NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency]
@@ -630,9 +646,14 @@ final class ClipboardBridge: NSObject {
     }
     let kind = file != nil ? "file" : image != nil ? "image" : text.isEmpty ? "other" : "text"
     let title = file.flatMap { URL(string: $0)?.lastPathComponent } ?? (text.isEmpty ? (kind == "image" ? "Copied image" : "Clipboard content") : String(text.prefix(120)))
-    let clip = Clip(id: UUID().uuidString, title: title, text: text, kind: kind,
-      source: NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown app",
-      date: Date().timeIntervalSince1970, snippet: false, items: items, preview: preview)
+    let sourceApp = NSWorkspace.shared.frontmostApplication
+    var clip = Clip(id: UUID().uuidString, title: title, text: text, kind: kind,
+      source: sourceApp?.localizedName ?? "Unknown app",
+      date: Date().timeIntervalSince1970, snippet: false, items: items, preview: preview,
+      sourceBundleID: sourceApp?.bundleIdentifier)
+    if let cgImage = image?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+      clip.pixelWidth = cgImage.width; clip.pixelHeight = cgImage.height
+    }
     if let image = image {
       let fingerprint = ScreenshotImage.fingerprint(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
       if let fingerprint = fingerprint, fingerprint == recentImageFingerprint,
@@ -660,6 +681,21 @@ final class ClipboardBridge: NSObject {
       screenshotPreferences.set(args["value"] as? Bool ?? true, forKey: "copyScreenshots")
       configureScreenshots(); publish(); result(nil)
     case "screenshotFolder": chooseScreenshotFolder(result)
+    case "linkPreviews":
+      LinkPreviewLoader.enabled = args["value"] as? Bool ?? false
+      publish(); result(nil)
+    case "appIcon":
+      result((args["bundleID"] as? String).flatMap(ClipIcons.app).map(FlutterStandardTypedData.init(bytes:)))
+    case "fileIcon":
+      result((args["path"] as? String).flatMap(ClipIcons.file).map(FlutterStandardTypedData.init(bytes:)))
+    case "linkPreview":
+      guard let url = args["url"] as? String else { result(nil); return }
+      LinkPreviewLoader.shared.preview(for: url) { preview in
+        guard let preview = preview else { result(nil); return }
+        var value: [String: Any] = ["title": preview.title]
+        if let image = preview.image { value["image"] = FlutterStandardTypedData(bytes: image) }
+        result(value)
+      }
     case "systemScreenshotFolder":
       screenshotPreferences.removeObject(forKey: "screenshotFolderBookmark")
       configureScreenshots(); publish(); result(nil)
@@ -942,5 +978,173 @@ final class CloudSync {
   enum SyncError: LocalizedError {
     case invalidRecord
     var errorDescription: String? { "An iCloud item could not be read safely. Local items are unchanged." }
+  }
+}
+
+/// App and file icons as small PNGs for cards, cached for the session.
+enum ClipIcons {
+  private static var cache: [String: Data] = [:]
+  static func app(_ bundleID: String) -> Data? {
+    guard !bundleID.isEmpty else { return nil }
+    if let cached = cache["app:" + bundleID] { return cached }
+    guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+    return store("app:" + bundleID, NSWorkspace.shared.icon(forFile: url.path))
+  }
+  static func file(_ reference: String) -> Data? {
+    let path = URL(string: reference).flatMap { $0.isFileURL ? $0.path : nil } ?? reference
+    guard path.hasPrefix("/") else { return nil }
+    // Missing files still get their type's icon (zip, pdf, folder…).
+    let key = "file:" + (FileManager.default.fileExists(atPath: path) ? path : (path as NSString).pathExtension)
+    if let cached = cache[key] { return cached }
+    let icon = FileManager.default.fileExists(atPath: path)
+      ? NSWorkspace.shared.icon(forFile: path)
+      : NSWorkspace.shared.icon(for: UTType(filenameExtension: (path as NSString).pathExtension) ?? .data)
+    return store(key, icon)
+  }
+  static func png(_ image: NSImage, side: CGFloat = 64) -> Data? {
+    let size = NSSize(width: side, height: side)
+    guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(side), pixelsHigh: Int(side),
+      bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+      bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
+    rep.size = size
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    image.draw(in: NSRect(origin: .zero, size: size))
+    NSGraphicsContext.restoreGraphicsState()
+    return rep.representation(using: .png, properties: [:])
+  }
+  private static func store(_ key: String, _ image: NSImage) -> Data? {
+    let data = png(image)
+    if let data = data { cache[key] = data }
+    return data
+  }
+}
+
+/// Opt-in link previews: the page's title and share image (Open Graph /
+/// Twitter card / <title>). Only http(s), no cookies, size and time limits,
+/// cached on disk under Application Support/ClipShelf/LinkPreviews.
+final class LinkPreviewLoader {
+  struct Preview { let title: String; let image: Data? }
+  static let shared = LinkPreviewLoader()
+  static var enabled: Bool {
+    get { UserDefaults.standard.bool(forKey: "linkPreviews") }
+    set { UserDefaults.standard.set(newValue, forKey: "linkPreviews") }
+  }
+  private let session: URLSession = {
+    let config = URLSessionConfiguration.ephemeral
+    config.timeoutIntervalForRequest = 8
+    config.timeoutIntervalForResource = 15
+    config.httpShouldSetCookies = false
+    config.httpCookieAcceptPolicy = .never
+    config.urlCache = nil
+    return URLSession(configuration: config)
+  }()
+  private var memory: [String: Preview] = [:]
+  private var pending: [String: [(Preview?) -> Void]] = [:]
+  private let directory: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    .appendingPathComponent("ClipShelf/LinkPreviews", isDirectory: true)
+
+  static func webURL(_ text: String) -> URL? {
+    guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+      let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http", url.host != nil else { return nil }
+    return url
+  }
+  /// Calls back on the main queue; nil when disabled, not a web link, or nothing usable was found.
+  func preview(for text: String, completion: @escaping (Preview?) -> Void) {
+    guard Self.enabled, let url = Self.webURL(text) else { completion(nil); return }
+    let key = url.absoluteString
+    if let cached = memory[key] ?? readDisk(key) { memory[key] = cached; completion(cached); return }
+    if pending[key] != nil { pending[key]?.append(completion); return }
+    pending[key] = [completion]
+    fetch(url, limit: 512 * 1024) { [weak self] html, finalURL in
+      guard let self = self else { return }
+      guard let html = html.flatMap({ String(data: $0, encoding: .utf8) ?? String(data: $0, encoding: .isoLatin1) }) else {
+        self.finish(key, nil); return
+      }
+      let meta = Self.parse(html, base: finalURL ?? url)
+      guard let title = meta.title ?? meta.image.map({ _ in url.host ?? "" }) else { self.finish(key, nil); return }
+      guard let imageURL = meta.image else { self.finish(key, Preview(title: title, image: nil)); return }
+      self.fetch(imageURL, limit: 4 * 1024 * 1024) { data, _ in
+        self.finish(key, Preview(title: title, image: data.flatMap { Self.thumbnail($0) }))
+      }
+    }
+  }
+  private func finish(_ key: String, _ preview: Preview?) {
+    DispatchQueue.main.async {
+      if let preview = preview { self.memory[key] = preview; self.writeDisk(key, preview) }
+      let callbacks = self.pending.removeValue(forKey: key) ?? []
+      callbacks.forEach { $0(preview) }
+    }
+  }
+  private func fetch(_ url: URL, limit: Int, completion: @escaping (Data?, URL?) -> Void) {
+    guard Self.webURL(url.absoluteString) != nil else { completion(nil, nil); return }
+    var request = URLRequest(url: url)
+    request.setValue("Mozilla/5.0 (Macintosh) ClipShelf link preview", forHTTPHeaderField: "User-Agent")
+    session.dataTask(with: request) { data, response, _ in
+      guard let data = data, data.count <= limit, let http = response as? HTTPURLResponse,
+        (200..<300).contains(http.statusCode) else { completion(nil, nil); return }
+      completion(data, http.url)
+    }.resume()
+  }
+  static func parse(_ html: String, base: URL) -> (title: String?, image: URL?) {
+    let head = String(html.prefix(200_000))
+    func meta(_ names: [String]) -> String? {
+      for name in names {
+        for pattern in [
+          "<meta[^>]+(?:property|name)=[\"']\(name)[\"'][^>]*content=[\"']([^\"']+)[\"']",
+          "<meta[^>]+content=[\"']([^\"']+)[\"'][^>]*(?:property|name)=[\"']\(name)[\"']",
+        ] {
+          if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+            let match = regex.firstMatch(in: head, range: NSRange(head.startIndex..., in: head)),
+            let range = Range(match.range(at: 1), in: head) {
+            return decode(String(head[range]))
+          }
+        }
+      }
+      return nil
+    }
+    var title = meta(["og:title", "twitter:title"])
+    if title == nil, let regex = try? NSRegularExpression(pattern: "<title[^>]*>([^<]+)</title>", options: [.caseInsensitive]),
+      let match = regex.firstMatch(in: head, range: NSRange(head.startIndex..., in: head)),
+      let range = Range(match.range(at: 1), in: head) {
+      title = decode(String(head[range]))
+    }
+    let image = meta(["og:image:secure_url", "og:image", "twitter:image", "twitter:image:src"])
+      .flatMap { URL(string: $0, relativeTo: base)?.absoluteURL }
+    let cleaned = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+    return (cleaned?.isEmpty == false ? String(cleaned!.prefix(200)) : nil, image)
+  }
+  static func decode(_ text: String) -> String {
+    var value = text
+    for (entity, character) in [("&amp;", "&"), ("&quot;", "\""), ("&#39;", "'"), ("&#x27;", "'"), ("&apos;", "'"),
+      ("&lt;", "<"), ("&gt;", ">"), ("&nbsp;", " ")] {
+      value = value.replacingOccurrences(of: entity, with: character)
+    }
+    return value
+  }
+  /// Re-encodes the share image as a bounded JPEG; also rejects non-images.
+  static func thumbnail(_ data: Data) -> Data? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+      let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceThumbnailMaxPixelSize: 720,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+      ] as CFDictionary) else { return nil }
+    return NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: 0.8])
+  }
+  private func name(_ key: String) -> String {
+    SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+  }
+  private func readDisk(_ key: String) -> Preview? {
+    let base = directory.appendingPathComponent(name(key))
+    guard let title = try? String(contentsOf: base.appendingPathExtension("txt"), encoding: .utf8) else { return nil }
+    return Preview(title: title, image: try? Data(contentsOf: base.appendingPathExtension("jpg")))
+  }
+  private func writeDisk(_ key: String, _ preview: Preview) {
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+      attributes: [.posixPermissions: 0o700])
+    let base = directory.appendingPathComponent(name(key))
+    try? preview.title.write(to: base.appendingPathExtension("txt"), atomically: true, encoding: .utf8)
+    if let image = preview.image { try? image.write(to: base.appendingPathExtension("jpg"), options: .atomic) }
   }
 }

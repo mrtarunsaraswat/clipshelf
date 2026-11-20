@@ -1,4 +1,5 @@
 import 'package:clipshelf/app/app.dart';
+import 'package:clipshelf/features/clipboard/application/library_view_controller.dart';
 import 'package:clipshelf/features/clipboard/domain/clipboard_item.dart';
 import 'package:clipshelf/features/clipboard/data/method_channel_clipboard_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -298,6 +299,53 @@ void main() {
       'id': 'c',
       'paste': true,
     });
+  });
+  testWidgets('Text cards show their character count', (tester) async {
+    await load(tester);
+    expect(find.text('13 characters'), findsOneWidget); // "Meeting notes"
+  });
+  testWidgets('A new copy slides in at the front of the shelf', (tester) async {
+    await load(tester);
+    currentState = {
+      ...currentState,
+      'clips': [clip('n', 'Fresh copy'), ...currentState['clips'] as List],
+    };
+    tester.binding.channelBuffers.push(
+      clipboardChannel.name,
+      const StandardMethodCodec().encodeMethodCall(
+        MethodCall('changed', currentState),
+      ),
+      (_) {},
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Fresh copy'), findsOneWidget); // mid-animation
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('Fresh copy')).dx,
+      lessThan(tester.getTopLeft(find.text('Meeting notes')).dx),
+    );
+  });
+  testWidgets('Search offers filters: Tab adds a chip, Backspace removes it', (
+    tester,
+  ) async {
+    await load(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(TextField)),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'tex');
+    await tester.pumpAndSettle();
+    expect(find.text('tab'), findsOneWidget); // first suggestion's hint
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    final tokens = container.read(libraryViewProvider).tokens;
+    expect(tokens.map((t) => t.label), ['Text']);
+    expect(container.read(libraryViewProvider).query, isEmpty);
+    expect(find.text('Meeting notes'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    expect(container.read(libraryViewProvider).tokens, isEmpty);
   });
   testWidgets('Menu-bar panel opens the snippet editor in one click', (
     tester,
