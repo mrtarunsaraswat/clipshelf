@@ -7,6 +7,7 @@ import '../../screenshots/presentation/screenshot_settings_section.dart';
 
 import 'package:clipshelf/features/clipboard/application/clipboard_controller.dart';
 import 'package:clipshelf/features/clipboard/data/clip_media.dart';
+import 'package:clipshelf/features/clipboard/domain/clipboard_snapshot.dart';
 import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart';
 
 class SettingsView extends ConsumerWidget {
@@ -22,6 +23,7 @@ class SettingsView extends ConsumerWidget {
     final syncStatus = sync.message;
     final syncConfigured = sync.configured;
     final subtitle = settingsSubtitleStyle(context);
+    final history = snapshot.history;
     final narrow = MediaQuery.sizeOf(context).width < 520;
     final allowButton = FilledButton(
       onPressed: () async {
@@ -192,13 +194,49 @@ class SettingsView extends ConsumerWidget {
             ListTile(
               contentPadding: settingsRowPadding,
               leading: SettingsIcon(
+                Icons.auto_delete_outlined,
+                color: colors.kindFile,
+              ),
+              title: const Text('Keep history for'),
+              subtitle: Text(
+                'Older items are removed automatically. Snippets and pinned items are kept.',
+                style: subtitle,
+              ),
+              trailing: _Choice<int>(
+                tooltip: 'Keep history for',
+                value: history.retentionDays,
+                options: HistorySettings.retentions,
+                label: HistorySettings.retentionLabel,
+                onSelected: (days) => ref
+                    .read(clipMediaProvider)
+                    .setHistoryPolicy(retentionDays: days),
+              ),
+            ),
+            ListTile(
+              contentPadding: settingsRowPadding,
+              leading: SettingsIcon(
                 Icons.history_rounded,
                 color: colors.kindText,
               ),
-              title: const Text('Local history'),
+              title: const Text('History size'),
               subtitle: Text(
-                'Up to 200 captured items, with a 100 MB total payload budget. Individual copies over 10 MB are skipped. Snippets and pinned items stay until you delete them (up to 500 saved items, within 50 MB).',
+                'Oldest items make room for new ones. Copies over 10 MB are skipped.',
                 style: subtitle,
+              ),
+              trailing: _Choice<int>(
+                tooltip: 'History size',
+                value: history.limit,
+                options: HistorySettings.limits,
+                label: (limit) => '${_thousands(limit)} items',
+                onSelected: (limit) =>
+                    ref.read(clipMediaProvider).setHistoryPolicy(limit: limit),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(56, 4, 14, 12),
+              child: _StorageMeter(
+                bytes: history.bytes,
+                budget: history.byteBudget,
               ),
             ),
             ListTile(
@@ -250,4 +288,105 @@ class _ComingSoonBadge extends StatelessWidget {
       ),
     ),
   );
+}
+
+String _thousands(int value) => value >= 1000
+    ? '${value ~/ 1000},${(value % 1000).toString().padLeft(3, '0')}'
+    : '$value';
+
+String _megabytes(int bytes) {
+  final mb = bytes / (1024 * 1024);
+  return mb < 10 ? '${mb.toStringAsFixed(1)} MB' : '${mb.round()} MB';
+}
+
+/// A compact value + chevron menu for a settings row.
+class _Choice<T> extends StatelessWidget {
+  const _Choice({
+    required this.tooltip,
+    required this.value,
+    required this.options,
+    required this.label,
+    required this.onSelected,
+  });
+  final String tooltip;
+  final T value;
+  final List<T> options;
+  final String Function(T) label;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.shelf;
+    return PopupMenuButton<T>(
+      tooltip: tooltip,
+      initialValue: value,
+      position: PopupMenuPosition.under,
+      onSelected: onSelected,
+      itemBuilder: (_) => [
+        for (final option in options)
+          PopupMenuItem(value: option, height: 34, child: Text(label(option))),
+      ],
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 5, 6, 5),
+        decoration: BoxDecoration(
+          color: colors.surfaceHover,
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label(value),
+              style: TextStyle(
+                fontSize: ShelfType.meta,
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+              ),
+            ),
+            Icon(
+              Icons.unfold_more_rounded,
+              size: 15,
+              color: colors.textSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "12.4 MB of 100 MB" with a thin bar; amber when nearly full.
+class _StorageMeter extends StatelessWidget {
+  const _StorageMeter({required this.bytes, required this.budget});
+  final int bytes, budget;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.shelf;
+    final fraction = budget <= 0 ? 0.0 : (bytes / budget).clamp(0.0, 1.0);
+    final full = fraction > 0.85;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Storage used: ${_megabytes(bytes)} of ${_megabytes(budget)}',
+          style: TextStyle(
+            fontSize: ShelfType.caption,
+            color: colors.textSecondary,
+            fontFeatures: ShelfType.tabular,
+          ),
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: fraction,
+            minHeight: 5,
+            backgroundColor: colors.surfaceHover,
+            color: full ? colors.warningText : colors.accentText,
+          ),
+        ),
+      ],
+    );
+  }
 }

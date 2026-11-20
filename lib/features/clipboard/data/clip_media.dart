@@ -36,6 +36,13 @@ class ClipMedia {
     }
   }
 
+  /// Preferences → History: keep up to [limit] items, for [retentionDays].
+  Future<void> setHistoryPolicy({int? limit, int? retentionDays}) =>
+      _channel.invokeMethod('historyPolicy', {
+        'limit': ?limit,
+        'retentionDays': ?retentionDays,
+      });
+
   Future<void> setLinkPreviews(bool value) =>
       _channel.invokeMethod('linkPreviews', {'value': value});
 

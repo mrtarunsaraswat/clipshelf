@@ -87,7 +87,7 @@ ClipShelf has no Dock icon. Find it in the menu bar, and right-click the icon fo
 
 <br>
 
-Only on your Mac, in `~/Library/Application Support/ClipShelf/`. It keeps up to 200 recent clips, and your snippets and pinboards are kept until you delete them.
+Only on your Mac, in `~/Library/Application Support/ClipShelf/`. By default ClipShelf keeps your 200 most recent clips; in **Preferences → History** you can keep 100 to 1,000 items and have older ones removed automatically after a day, a week or a month. Snippets and pinned items are kept until you delete them.
 
 </details>
 

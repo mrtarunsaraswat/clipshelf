@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **History settings:** Preferences → History adds *Keep history for* (Forever, 1 day, 1 week, 1 month) and *History size* (100–1,000 items), with a storage-used meter.
+- **No more duplicates from repeat ⌘C** in VS Code and other Chromium apps; repeat copies move the existing item to the front.
 - **iCloud sync is marked Coming soon** in Preferences for builds without CloudKit provisioning.
 - **Desktop Favorites widget now works in the free download.** Builds without an App Group share favorites through `~/Library/Application Support/ClipShelf/Widget/`, using a sandbox exception scoped to that folder. Team-signed builds still use their App Group.
 

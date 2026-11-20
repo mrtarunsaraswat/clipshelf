@@ -67,6 +67,31 @@ struct Clip: Codable {
   }
   var size: Int { items.reduce(0) { $0 + $1.values.reduce(0) { $0 + $1.count } } }
 }
+/// How much history to keep: an item count (with a storage budget that scales
+/// with it, 200 items → 100 MB) and an optional age limit.
+struct HistoryPolicy: Equatable {
+  static let limits = [100, 200, 500, 1000]
+  /// Days to keep history; 0 keeps it until the size limit removes it.
+  static let retentions = [0, 1, 7, 30]
+  var limit = 200
+  var retentionDays = 0
+  var byteBudget: Int { limit * 512 * 1024 }
+  func cutoff(now: Date) -> Double? {
+    retentionDays > 0 ? now.timeIntervalSince1970 - Double(retentionDays) * 86_400 : nil
+  }
+  static func load(from defaults: UserDefaults) -> HistoryPolicy {
+    var policy = HistoryPolicy()
+    let limit = defaults.integer(forKey: "historyLimit")
+    if limits.contains(limit) { policy.limit = limit }
+    let days = defaults.integer(forKey: "historyRetentionDays")
+    if retentions.contains(days) { policy.retentionDays = days }
+    return policy
+  }
+  func save(to defaults: UserDefaults) {
+    defaults.set(limit, forKey: "historyLimit")
+    defaults.set(retentionDays, forKey: "historyRetentionDays")
+  }
+}
 struct Pinboard: Codable {
   var id: String
   var name: String
@@ -291,6 +316,7 @@ final class ClipboardBridge: NSObject {
       self?.refreshAccessibility()
       self?.capture()
       self?.refreshScreenshotFolderIfNeeded()
+      self?.expireOldHistory()
     }
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appActivated(_:)), name: NSWorkspace.didActivateApplicationNotification, object: nil)
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appResigned), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
@@ -655,6 +681,8 @@ final class ClipboardBridge: NSObject {
        "syncStatus": cloudStatus, "presentation": presentation,
        "floatingPinned": floating.pinned, "widgetConfigured": widgetStore.available,
        "widgetSharing": widgetSharing, "linkPreviews": LinkPreviewLoader.enabled,
+       "historyLimit": historyPolicy.limit, "historyRetentionDays": historyPolicy.retentionDays,
+       "historyBytes": historyBytes, "historyByteBudget": historyPolicy.byteBudget,
        "screenshotsEnabled": screenshotsEnabled, "screenshotsFolder": screenshotFolderPath,
        "screenshotsStatus": screenshotStatus, "screenshotsWatching": screenshotWatching,
        "accentColor": Self.accentARGB(), "reduceTransparency": NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency]
@@ -729,12 +757,36 @@ final class ClipboardBridge: NSObject {
     archive.clips.insert(clip, at: 0)
     trim(); persist(); publish()
   }
-  func trim() {
-    while archive.clips.filter({ !$0.retained }).count > 200 || archive.clips.reduce(0, { $0 + $1.size }) > 100 * 1024 * 1024 {
-      guard let index = archive.clips.lastIndex(where: { !$0.retained }) else { break }
+  var historyPolicy: HistoryPolicy {
+    get { HistoryPolicy.load(from: screenshotPreferences) }
+    set { newValue.save(to: screenshotPreferences) }
+  }
+  /// Bytes used by history (snippets and pinned items have their own limits).
+  var historyBytes: Int { archive.clips.filter { !$0.retained }.reduce(0) { $0 + $1.size } }
+  /// Applies the history policy: drops items older than the retention period,
+  /// then the oldest items beyond the size limit or storage budget. Snippets
+  /// and pinned items are never removed here.
+  func trim(now: Date = Date()) {
+    let policy = historyPolicy
+    func remove(at index: Int) {
       lastSnapshot.removeValue(forKey: "clip-" + archive.clips[index].id)
       archive.clips.remove(at: index)
     }
+    if let cutoff = policy.cutoff(now: now) {
+      for index in archive.clips.indices.reversed() where !archive.clips[index].retained && archive.clips[index].date < cutoff {
+        remove(at: index)
+      }
+    }
+    while archive.clips.filter({ !$0.retained }).count > policy.limit || historyBytes > policy.byteBudget {
+      guard let index = archive.clips.lastIndex(where: { !$0.retained }) else { break }
+      remove(at: index)
+    }
+  }
+  /// Called on the capture timer: removes expired items while the app runs.
+  func expireOldHistory(now: Date = Date()) {
+    guard let cutoff = historyPolicy.cutoff(now: now),
+      archive.clips.contains(where: { !$0.retained && $0.date < cutoff }) else { return }
+    trim(now: now); persist(); publish()
   }
   func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
     let args = call.arguments as? [String: Any] ?? [:]
@@ -744,6 +796,12 @@ final class ClipboardBridge: NSObject {
       screenshotPreferences.set(args["value"] as? Bool ?? true, forKey: "copyScreenshots")
       configureScreenshots(); publish(); result(nil)
     case "screenshotFolder": chooseScreenshotFolder(result)
+    case "historyPolicy":
+      var policy = historyPolicy
+      if let limit = args["limit"] as? Int, HistoryPolicy.limits.contains(limit) { policy.limit = limit }
+      if let days = args["retentionDays"] as? Int, HistoryPolicy.retentions.contains(days) { policy.retentionDays = days }
+      historyPolicy = policy
+      trim(); persist(); publish(); result(nil)
     case "linkPreviews":
       LinkPreviewLoader.enabled = args["value"] as? Bool ?? false
       publish(); result(nil)

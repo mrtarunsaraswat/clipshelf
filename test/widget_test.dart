@@ -512,6 +512,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls.where((c) => c.method == 'hide'), hasLength(2)); // up: no
   });
+  testWidgets('Preferences sets how long and how much history to keep', (
+    tester,
+  ) async {
+    currentState = {};
+    await load(tester);
+    await tester.tap(find.byTooltip('Preferences'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.textContaining('Storage used'),
+      120,
+      scrollable: find
+          .descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Forever'), findsOneWidget);
+    expect(find.text('200 items'), findsOneWidget);
+    expect(find.text('Storage used: 0.0 MB of 100 MB'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Keep history for'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Keep history for'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1 week').last);
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'historyPolicy').single.arguments, {
+      'retentionDays': 7,
+    });
+  });
   testWidgets('Menu-bar panel opens the snippet editor in one click', (
     tester,
   ) async {

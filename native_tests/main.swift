@@ -297,6 +297,28 @@ for session in ["one", "two", "three", "four"] {
 }
 check(dedupeBridge.archive.clips.filter { $0.text == "same text" }.count == 1, "pressing ⌘C four times keeps one history item")
 
+let policySuite = "clipshelf-tests-policy-\(UUID().uuidString)"
+let policyDefaults = UserDefaults(suiteName: policySuite)!
+defer { policyDefaults.removePersistentDomain(forName: policySuite) }
+check(HistoryPolicy.load(from: policyDefaults) == HistoryPolicy(), "history defaults: 200 items, kept until the size limit")
+check(HistoryPolicy(limit: 200).byteBudget == 100 * 1024 * 1024 && HistoryPolicy(limit: 1000).byteBudget == 500 * 1024 * 1024, "storage budget scales with the item limit (200 → 100 MB)")
+policyDefaults.set(999, forKey: "historyLimit")
+check(HistoryPolicy.load(from: policyDefaults).limit == 200, "an unknown stored limit falls back to 200")
+let policyBridge = ClipboardBridge(window: nil, messenger: Messenger(), storageURL: folder.appendingPathComponent("policy.json"), pasteboard: MemoryPasteboard(), startMonitoring: false, screenshotPreferences: policyDefaults)
+let policyNow = Date(timeIntervalSince1970: 2_000_000_000)
+func policyClip(_ id: String, daysAgo: Double, snippet: Bool = false) -> Clip {
+  Clip(id: id, title: id, text: id, kind: "text", source: "Test", date: policyNow.timeIntervalSince1970 - daysAgo * 86_400,
+    snippet: snippet, items: [["public.utf8-plain-text": Data(id.utf8)]], preview: nil)
+}
+policyBridge.archive.clips = [policyClip("fresh", daysAgo: 0.5), policyClip("week-old", daysAgo: 8), policyClip("old-snippet", daysAgo: 90, snippet: true)]
+policyBridge.historyPolicy = HistoryPolicy(limit: 200, retentionDays: 7)
+policyBridge.trim(now: policyNow)
+check(policyBridge.archive.clips.map(\.id) == ["fresh", "old-snippet"], "Keep history for 1 week removes older history but never snippets")
+policyBridge.archive.clips = (0..<150).map { policyClip("item-\($0)", daysAgo: Double($0) / 1000) }
+policyBridge.historyPolicy = HistoryPolicy(limit: 100, retentionDays: 0)
+policyBridge.trim(now: policyNow)
+check(policyBridge.archive.clips.count == 100 && policyBridge.archive.clips.first?.id == "item-0", "History size 100 keeps the newest 100 items")
+
 let localGroup = "ABCDE12345.clipshelf"
 check(WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "ABCDE12345"), "macOS Team-ID group accepts its actual signing team")
 check(!WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "OTHER12345"), "macOS Team-ID group rejects a different signer")
