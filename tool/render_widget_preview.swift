@@ -24,12 +24,26 @@ struct WidgetPreviewRenderer {
       ("medium-text", .systemMedium, 360, true, .light, nil),
       // Dark appearance, with the second favorite in its "Copied" state.
       ("medium-dark", .systemMedium, 360, true, .dark, "two"),
+      ("large", .systemLarge, 360, false, .light, nil),
+      ("large-dark", .systemLarge, 360, true, .dark, nil),
     ]
+    // A paused pinboard, to show the pinboard colour and the paused state.
+    let board = WidgetCollection(id: "launch", name: "Launch week", items: Array(samples.prefix(4)), total: 4, colorIndex: 1)
+    let paused = FavoritesEntry(date: Date(), collection: board, enabled: true, showPreviews: false, copiedID: nil, paused: true)
+    let pausedView = FavoritesContentView(entry: paused, family: .systemMedium)
+      .padding(14).frame(width: 360, height: 170)
+      .background(Color.white).clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+      .environment(\.colorScheme, .light)
+    let pausedRenderer = ImageRenderer(content: pausedView); pausedRenderer.scale = 2
+    if let image = pausedRenderer.cgImage, let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
+      try data.write(to: URL(fileURLWithPath: "widget-medium-paused-preview.png"))
+    }
     for (name, family, width, previews, scheme, copied) in variants {
-      let entry = FavoritesEntry(date: Date(), collection: collection, enabled: true, showPreviews: previews, copiedID: copied)
+      let shown = family == .systemLarge ? WidgetCollection(id: "snippets", name: "Snippets", items: samples + samples.map { WidgetFavorite(id: $0.id + "-2", title: $0.title + " 2", text: $0.text) }, total: 12) : collection
+      let entry = FavoritesEntry(date: Date(), collection: shown, enabled: true, showPreviews: previews, copiedID: copied)
       let background = scheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.13) : Color.white
       let content = FavoritesContentView(entry: entry, family: family)
-        .padding(14).frame(width: width, height: 170)
+        .padding(14).frame(width: width, height: family == .systemLarge ? 376 : 170)
         .background(LinearGradient(colors: [Color.accentColor.opacity(0.10), .clear], startPoint: .topLeading, endPoint: .center))
         .background(background)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))

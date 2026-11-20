@@ -331,6 +331,7 @@ final class ClipboardBridge: NSObject {
       self?.capture()
       self?.refreshScreenshotFolderIfNeeded()
       self?.expireOldHistory()
+      self?.applyWidgetCaptureRequest()
     }
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appActivated(_:)), name: NSWorkspace.didActivateApplicationNotification, object: nil)
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appResigned), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)

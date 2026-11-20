@@ -322,6 +322,22 @@ check(policyBridge.archive.clips.count == 100 && policyBridge.archive.clips.firs
 check(ClipboardBridge.webLink("https://www.linkedin.com/in/mrtarunsaraswat/") != nil, "the credit's profile link can be opened")
 check(ClipboardBridge.webLink("http://example.com") == nil && ClipboardBridge.webLink("file:///etc/hosts") == nil && ClipboardBridge.webLink("clipshelf://open") == nil, "openURL refuses non-https links, files and app schemes")
 
+let manyFavorites = (0..<15).map { WidgetFavorite(id: "f\($0)", title: "Favorite \($0)", text: "text \($0)") }
+check(WidgetFavorites.collection(id: "snippets", name: "Snippets", items: manyFavorites).items.count == 12, "the widget gets up to 12 favorites, enough for the Large size")
+let colouredBoard = Pinboard(id: "launch", name: "Launch", color: 3)
+let colouredClip = Clip(id: "pinned-text", title: "Pinned", text: "Pinned text", kind: "text", source: "Test", date: 0, snippet: false, items: [], preview: nil, boardID: "launch")
+let colouredSnapshot = WidgetLibraryExporter.snapshot(clips: [colouredClip], boards: [colouredBoard], enabled: true, paused: true)
+check(colouredSnapshot.paused == true && colouredSnapshot.collections.last?.colorIndex == 3 && colouredSnapshot.collections.first?.colorIndex == nil, "the widget snapshot carries the pause state and each pinboard's colour")
+let olderSnapshot = Data(#"{"enabled":true,"collections":[{"id":"snippets","name":"Snippets","items":[],"total":0}]}"#.utf8)
+check((try? JSONDecoder().decode(WidgetFavorites.self, from: olderSnapshot))?.paused == nil, "snapshots from older builds still load")
+let requestFolder = folder.appendingPathComponent("widget-requests", isDirectory: true)
+try FileManager.default.createDirectory(at: requestFolder, withIntermediateDirectories: true)
+let requestStore = WidgetFavoritesStore(directory: requestFolder)
+try requestStore.requestCapture(paused: true)
+check(requestStore.takeCaptureRequest() == true && requestStore.takeCaptureRequest() == nil, "the widget's Pause request is taken once")
+try requestStore.requestCapture(paused: false, now: Date().addingTimeInterval(-600))
+check(requestStore.takeCaptureRequest() == nil, "a stale Pause request (app wasn't running) is ignored")
+
 let localGroup = "ABCDE12345.clipshelf"
 check(WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "ABCDE12345"), "macOS Team-ID group accepts its actual signing team")
 check(!WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "OTHER12345"), "macOS Team-ID group rejects a different signer")
