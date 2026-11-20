@@ -23,6 +23,7 @@ class SmartSearchField extends ConsumerStatefulWidget {
     this.onClose,
     this.height = 34,
     this.autofocus = false,
+    this.bare = false,
   });
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -31,6 +32,9 @@ class SmartSearchField extends ConsumerStatefulWidget {
   final String hintText;
   final double height;
   final bool autofocus;
+
+  /// No border or fill: an outer capsule (the shelf's SearchMorph) draws them.
+  final bool bare;
 
   @override
   ConsumerState<SmartSearchField> createState() => _SmartSearchFieldState();
@@ -45,16 +49,32 @@ class _SmartSearchFieldState extends ConsumerState<SmartSearchField> {
   /// Set by Escape so the menu stays closed until the text changes.
   bool _dismissed = false;
 
+  /// True while the ≡ filter menu is open, which takes focus from the field
+  /// but must not count as clicking away.
+  bool _filterMenuOpen = false;
+
   @override
   void initState() {
     super.initState();
     widget.focusNode.onKeyEvent = _onKey;
     widget.focusNode.addListener(_sync);
+    widget.focusNode.addListener(_collapseWhenLeftEmpty);
+  }
+
+  /// Clicking away from an empty search collapses it (when it can collapse).
+  void _collapseWhenLeftEmpty() {
+    if (widget.onClose == null || widget.focusNode.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.focusNode.hasFocus || _filterMenuOpen) return;
+      final state = ref.read(libraryViewProvider);
+      if (state.query.isEmpty && state.tokens.isEmpty) widget.onClose?.call();
+    });
   }
 
   @override
   void dispose() {
     widget.focusNode.removeListener(_sync);
+    widget.focusNode.removeListener(_collapseWhenLeftEmpty);
     if (widget.focusNode.onKeyEvent == _onKey) {
       widget.focusNode.onKeyEvent = null;
     }
@@ -177,6 +197,16 @@ class _SmartSearchFieldState extends ConsumerState<SmartSearchField> {
               ref.read(libraryViewProvider.notifier).search(value);
             },
             onSubmitted: (_) => widget.onSubmitted(),
+            // A click anywhere else closes an empty search.
+            onTapOutside: (_) {
+              final state = ref.read(libraryViewProvider);
+              if (widget.onClose != null &&
+                  !_filterMenuOpen &&
+                  state.query.isEmpty &&
+                  state.tokens.isEmpty) {
+                widget.onClose!();
+              }
+            },
             style: const TextStyle(fontSize: ShelfType.body),
             decoration: InputDecoration(
               hintText: tokens.isEmpty ? widget.hintText : null,
@@ -184,21 +214,27 @@ class _SmartSearchFieldState extends ConsumerState<SmartSearchField> {
                 fontSize: ShelfType.body,
                 color: colors.textTertiary,
               ),
-              filled: true,
+              filled: !widget.bare,
               fillColor: colors.surface,
               contentPadding: const EdgeInsets.symmetric(vertical: 6),
-              border: OutlineInputBorder(
-                borderRadius: radius,
-                borderSide: BorderSide(color: colors.stroke),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: radius,
-                borderSide: BorderSide(color: colors.stroke),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: radius,
-                borderSide: BorderSide(color: colors.accent, width: 2),
-              ),
+              border: widget.bare
+                  ? InputBorder.none
+                  : OutlineInputBorder(
+                      borderRadius: radius,
+                      borderSide: BorderSide(color: colors.stroke),
+                    ),
+              enabledBorder: widget.bare
+                  ? InputBorder.none
+                  : OutlineInputBorder(
+                      borderRadius: radius,
+                      borderSide: BorderSide(color: colors.stroke),
+                    ),
+              focusedBorder: widget.bare
+                  ? InputBorder.none
+                  : OutlineInputBorder(
+                      borderRadius: radius,
+                      borderSide: BorderSide(color: colors.accent, width: 2),
+                    ),
               prefixIconConstraints: BoxConstraints(
                 minHeight: widget.height,
                 maxWidth: 460,
@@ -233,13 +269,23 @@ class _SmartSearchFieldState extends ConsumerState<SmartSearchField> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    _FilterButton(
+                      onPick: _pick,
+                      onOpenChanged: (open) => _filterMenuOpen = open,
+                    ),
+                    // ✕ clears; with nothing to clear it closes search.
                     if (hasContent)
                       _FieldButton(
                         tooltip: 'Clear search',
                         icon: Icons.cancel,
                         onPressed: _clear,
+                      )
+                    else if (widget.onClose != null)
+                      _FieldButton(
+                        tooltip: 'Close search',
+                        icon: Icons.close_rounded,
+                        onPressed: widget.onClose!,
                       ),
-                    _FilterButton(onPick: _pick),
                   ],
                 ),
               ),
@@ -362,13 +408,19 @@ class _FieldButton extends StatelessWidget {
 
 /// The ≡ button: every type and date filter, for when you'd rather click.
 class _FilterButton extends StatelessWidget {
-  const _FilterButton({required this.onPick});
+  const _FilterButton({required this.onPick, required this.onOpenChanged});
   final ValueChanged<SearchToken> onPick;
+  final ValueChanged<bool> onOpenChanged;
 
   @override
   Widget build(BuildContext context) => PopupMenuButton<SearchToken>(
     tooltip: 'Filters',
-    onSelected: onPick,
+    onOpened: () => onOpenChanged(true),
+    onCanceled: () => onOpenChanged(false),
+    onSelected: (token) {
+      onOpenChanged(false);
+      onPick(token);
+    },
     position: PopupMenuPosition.under,
     itemBuilder: (_) => [
       for (final token in SearchToken.kinds) _item(token),

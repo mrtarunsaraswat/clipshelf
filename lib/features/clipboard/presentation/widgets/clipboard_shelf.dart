@@ -9,6 +9,7 @@ import 'package:clipshelf/features/clipboard/presentation/clipboard_actions.dart
 import 'package:clipshelf/features/clipboard/presentation/clipboard_style.dart';
 
 import 'animated_clip_list.dart';
+import 'search_morph.dart';
 import 'smart_search_field.dart';
 import 'clipboard_card.dart';
 import 'collection_tab.dart';
@@ -154,122 +155,104 @@ class ClipboardShelf extends ConsumerWidget {
                 ],
                 const SizedBox(width: 16),
                 Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(
-                        scale: Tween(begin: 0.97, end: 1.0).animate(animation),
-                        child: child,
-                      ),
+                  child: SearchMorph(
+                    open: searchOpen,
+                    onOpen: () {
+                      viewController.openSearch();
+                      // autofocus only works the first time; focus every open.
+                      WidgetsBinding.instance.addPostFrameCallback(
+                        (_) => searchFocus.requestFocus(),
+                      );
+                    },
+                    focusNode: searchFocus,
+                    field: SmartSearchField(
+                      controller: search,
+                      focusNode: searchFocus,
+                      autofocus: true,
+                      bare: true,
+                      hintText: 'Search',
+                      onSubmitted: () {
+                        if (current != null) actions.paste(current);
+                      },
+                      onClose: () {
+                        search.clear();
+                        viewController.closeSearch();
+                        libraryFocus.requestFocus();
+                      },
                     ),
-                    child: searchOpen
-                        ? Row(
-                            key: const ValueKey('search'),
+                    compact: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        compactTab(
+                          'All items',
+                          'Clipboard',
+                          Icons.history_rounded,
+                          null,
+                        ),
+                        compactTab(
+                          'Snippets',
+                          'Snippets',
+                          Icons.bookmark_outline,
+                          null,
+                        ),
+                        for (final board in boards)
+                          compactTab(
+                            board.id,
+                            board.name,
+                            Icons.circle,
+                            boardColor(colors, board.color),
+                          ),
+                      ],
+                    ),
+                    tabs: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceHover,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
                             children: [
-                              Expanded(
-                                child: SmartSearchField(
-                                  controller: search,
-                                  focusNode: searchFocus,
-                                  autofocus: true,
-                                  hintText: 'Search',
-                                  onSubmitted: () {
-                                    if (current != null) actions.paste(current);
-                                  },
-                                  onClose: () {
-                                    search.clear();
-                                    viewController.closeSearch();
-                                    libraryFocus.requestFocus();
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              compactTab(
+                              tab(
                                 'All items',
                                 'Clipboard',
                                 Icons.history_rounded,
                                 null,
                               ),
-                              compactTab(
+                              const SizedBox(width: 2),
+                              tab(
                                 'Snippets',
                                 'Snippets',
                                 Icons.bookmark_outline,
                                 null,
                               ),
                               for (final board in boards)
-                                compactTab(
-                                  board.id,
-                                  board.name,
-                                  Icons.circle,
-                                  boardColor(colors, board.color),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 2),
+                                  child: boardDropTarget(
+                                    board.id,
+                                    tab(
+                                      board.id,
+                                      board.name,
+                                      Icons.circle,
+                                      boardColor(colors, board.color),
+                                    ),
+                                  ),
                                 ),
                             ],
-                          )
-                        : Center(
-                            key: const ValueKey('tabs'),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  IconButton(
-                                    tooltip: 'Search (⌘F)',
-                                    style: toolbarButtonStyle(colors),
-                                    onPressed: viewController.openSearch,
-                                    icon: const Icon(Icons.search, size: 19),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.all(3),
-                                    decoration: BoxDecoration(
-                                      color: colors.surfaceHover,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        tab(
-                                          'All items',
-                                          'Clipboard',
-                                          Icons.history_rounded,
-                                          null,
-                                        ),
-                                        const SizedBox(width: 2),
-                                        tab(
-                                          'Snippets',
-                                          'Snippets',
-                                          Icons.bookmark_outline,
-                                          null,
-                                        ),
-                                        for (final board in boards)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 2,
-                                            ),
-                                            child: boardDropTarget(
-                                              board.id,
-                                              tab(
-                                                board.id,
-                                                board.name,
-                                                Icons.circle,
-                                                boardColor(colors, board.color),
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    tooltip: 'New pinboard',
-                                    style: toolbarButtonStyle(colors),
-                                    onPressed: actions.showPinboardDialog,
-                                    icon: const Icon(Icons.add, size: 18),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'New pinboard',
+                          style: toolbarButtonStyle(colors),
+                          onPressed: actions.showPinboardDialog,
+                          icon: const Icon(Icons.add, size: 18),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),

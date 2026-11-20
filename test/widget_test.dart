@@ -387,6 +387,27 @@ void main() {
       expect(calls.where((c) => c.method == 'hide'), isEmpty);
     },
   );
+  testWidgets(
+    'Shelf search closes with ✕ or a click away, but only when empty',
+    (tester) async {
+      await load(tester);
+      await openShelfSearch(tester);
+      await tester.tap(find.byTooltip('Close search'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      await openShelfSearch(tester);
+      await tester.tapAt(tester.getCenter(find.textContaining('On this Mac')));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing); // empty: collapses
+      await openShelfSearch(tester);
+      await tester.enterText(find.byType(TextField), 'meeting');
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(find.textContaining('On this Mac')));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget); // has a query: stays
+      expect(find.byTooltip('Clear search'), findsOneWidget);
+    },
+  );
   testWidgets('Menu-bar panel opens the snippet editor in one click', (
     tester,
   ) async {
