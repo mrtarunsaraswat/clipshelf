@@ -17,6 +17,15 @@ struct WidgetPreviewRenderer {
       WidgetFavorite(id: "six", title: "Favorite quote", text: "Make room for good ideas.")
     ]
     let collection = WidgetCollection(id: "snippets", name: "Snippets", items: samples, total: 6)
+    // The Large size shows up to 12 favorites.
+    let more = [
+      WidgetFavorite(id: "seven", title: "Team call link", text: "https://meet.example.com/team"),
+      WidgetFavorite(id: "eight", title: "Home address", text: "12 Lake View Road"),
+      WidgetFavorite(id: "nine", title: "Review checklist", text: "Tests, naming, docs"),
+      WidgetFavorite(id: "ten", title: "Bug report template", text: "Steps, expected, actual"),
+      WidgetFavorite(id: "eleven", title: "Thank-you note", text: "Thanks so much for your help!"),
+      WidgetFavorite(id: "twelve", title: "Wi-Fi name", text: "Studio Guest"),
+    ]
     let variants: [(String, WidgetFamily, Double, Bool, ColorScheme, String?)] = [
       ("small", .systemSmall, 170, false, .light, nil),
       ("medium", .systemMedium, 360, false, .light, nil),
@@ -39,7 +48,7 @@ struct WidgetPreviewRenderer {
       try data.write(to: URL(fileURLWithPath: "widget-medium-paused-preview.png"))
     }
     for (name, family, width, previews, scheme, copied) in variants {
-      let shown = family == .systemLarge ? WidgetCollection(id: "snippets", name: "Snippets", items: samples + samples.map { WidgetFavorite(id: $0.id + "-2", title: $0.title + " 2", text: $0.text) }, total: 12) : collection
+      let shown = family == .systemLarge ? WidgetCollection(id: "snippets", name: "Snippets", items: samples + more, total: 12) : collection
       let entry = FavoritesEntry(date: Date(), collection: shown, enabled: true, showPreviews: previews, copiedID: copied)
       let background = scheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.13) : Color.white
       let content = FavoritesContentView(entry: entry, family: family)
