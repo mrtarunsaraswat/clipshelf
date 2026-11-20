@@ -43,6 +43,10 @@ class ClipMedia {
         'retentionDays': ?retentionDays,
       });
 
+  /// Opens an https link in the default browser (macOS checks the scheme too).
+  Future<void> openURL(String url) =>
+      _channel.invokeMethod('openURL', {'url': url});
+
   Future<void> setLinkPreviews(bool value) =>
       _channel.invokeMethod('linkPreviews', {'value': value});
 

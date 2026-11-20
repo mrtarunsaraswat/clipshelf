@@ -459,6 +459,11 @@ final class ClipboardBridge: NSObject {
     stopOutsideClickMonitoring()
     if wasVisible { channel.invokeMethod("closed", arguments: nil) }
   }
+  /// An https URL with a host, or nil. Guards the openURL channel call.
+  static func webLink(_ text: String) -> URL? {
+    guard let url = URL(string: text), url.scheme?.lowercased() == "https", url.host?.isEmpty == false else { return nil }
+    return url
+  }
   /// ⌥⌘V opens the shelf, and closes it again when it is already showing.
   @objc func toggleShelf() {
     if presentation == "shelf", window?.isVisible == true { dismissPanel() } else { show() }
@@ -809,6 +814,11 @@ final class ClipboardBridge: NSObject {
       screenshotPreferences.set(args["value"] as? Bool ?? true, forKey: "copyScreenshots")
       configureScreenshots(); publish(); result(nil)
     case "screenshotFolder": chooseScreenshotFolder(result)
+    case "openURL":
+      // Only web links (the credit's profile link); never files or app schemes.
+      guard let url = (args["url"] as? String).flatMap(Self.webLink) else { result(false); return }
+      dismissPanel()
+      result(NSWorkspace.shared.open(url))
     case "historyPolicy":
       var policy = historyPolicy
       if let limit = args["limit"] as? Int, HistoryPolicy.limits.contains(limit) { policy.limit = limit }

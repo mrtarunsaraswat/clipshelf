@@ -144,4 +144,4 @@ flutter run -d macos          # run in development
 
 [MIT](LICENSE) © 2026 Tarun Sharma. Built with [Flutter](https://flutter.dev).
 
-<p align="center">Made with ♥ by Tarun Sharma</p>
+<p align="center">Made with ♥ by <a href="https://www.linkedin.com/in/mrtarunsaraswat/">Tarun</a></p>

@@ -319,6 +319,9 @@ policyBridge.historyPolicy = HistoryPolicy(limit: 100, retentionDays: 0)
 policyBridge.trim(now: policyNow)
 check(policyBridge.archive.clips.count == 100 && policyBridge.archive.clips.first?.id == "item-0", "History size 100 keeps the newest 100 items")
 
+check(ClipboardBridge.webLink("https://www.linkedin.com/in/mrtarunsaraswat/") != nil, "the credit's profile link can be opened")
+check(ClipboardBridge.webLink("http://example.com") == nil && ClipboardBridge.webLink("file:///etc/hosts") == nil && ClipboardBridge.webLink("clipshelf://open") == nil, "openURL refuses non-https links, files and app schemes")
+
 let localGroup = "ABCDE12345.clipshelf"
 check(WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "ABCDE12345"), "macOS Team-ID group accepts its actual signing team")
 check(!WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "OTHER12345"), "macOS Team-ID group rejects a different signer")

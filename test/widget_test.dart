@@ -549,6 +549,26 @@ void main() {
       'retentionDays': 7,
     });
   });
+  testWidgets('The credit links Tarun to his LinkedIn profile', (tester) async {
+    await load(tester);
+    await tester.tap(find.byTooltip('Preferences'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byTooltip('Open Tarun’s LinkedIn profile'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
+    await tester.tap(find.text('Tarun'));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'openURL').single.arguments, {
+      'url': 'https://www.linkedin.com/in/mrtarunsaraswat/',
+    });
+  });
   testWidgets('Menu-bar panel opens the snippet editor in one click', (
     tester,
   ) async {

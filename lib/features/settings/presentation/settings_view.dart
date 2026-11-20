@@ -274,7 +274,17 @@ class SettingsView extends ConsumerWidget {
                       text: '♥',
                       style: TextStyle(color: colors.danger),
                     ),
-                    const TextSpan(text: ' by Tarun Sharma'),
+                    const TextSpan(text: ' by '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.baseline,
+                      baseline: TextBaseline.alphabetic,
+                      child: _CreditLink(
+                        label: 'Tarun',
+                        url: _authorProfile,
+                        onOpen: (url) =>
+                            ref.read(clipMediaProvider).openURL(url),
+                      ),
+                    ),
                   ],
                 ),
                 textAlign: TextAlign.center,
@@ -412,6 +422,52 @@ class _StorageMeter extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+const _authorProfile = 'https://www.linkedin.com/in/mrtarunsaraswat/';
+
+/// The author's name in the credit, linking to their profile; underlines on hover.
+class _CreditLink extends StatefulWidget {
+  const _CreditLink({
+    required this.label,
+    required this.url,
+    required this.onOpen,
+  });
+  final String label, url;
+  final ValueChanged<String> onOpen;
+
+  @override
+  State<_CreditLink> createState() => _CreditLinkState();
+}
+
+class _CreditLinkState extends State<_CreditLink> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.shelf;
+    return Tooltip(
+      message: 'Open Tarun’s LinkedIn profile',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: () => widget.onOpen(widget.url),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: ShelfType.meta,
+              fontWeight: FontWeight.w600,
+              color: colors.accentText,
+              decoration: _hovered ? TextDecoration.underline : null,
+              decorationColor: colors.accentText,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
