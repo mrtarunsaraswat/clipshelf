@@ -109,17 +109,8 @@ class ClipboardShelf extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.strokeStrong,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
+            Center(child: _ShelfHandle(onClose: () => actions.hide())),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Icon(Icons.layers_rounded, color: colors.accentText, size: 22),
@@ -370,6 +361,62 @@ class ClipboardShelf extends ConsumerWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The grip at the top of the shelf: click it, or drag it down, to close.
+class _ShelfHandle extends StatefulWidget {
+  const _ShelfHandle({required this.onClose});
+  final VoidCallback onClose;
+
+  @override
+  State<_ShelfHandle> createState() => _ShelfHandleState();
+}
+
+class _ShelfHandleState extends State<_ShelfHandle> {
+  bool _hovered = false;
+  double _drag = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.shelf;
+    return Tooltip(
+      message: 'Close (esc)',
+      waitDuration: const Duration(milliseconds: 700),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onClose,
+          onVerticalDragStart: (_) => _drag = 0,
+          onVerticalDragUpdate: (details) =>
+              setState(() => _drag = (_drag + details.delta.dy).clamp(0, 40)),
+          onVerticalDragEnd: (details) {
+            final flung = (details.primaryVelocity ?? 0) > 300;
+            if (_drag > 18 || flung) widget.onClose();
+            setState(() => _drag = 0);
+          },
+          child: SizedBox(
+            width: 96,
+            height: 16,
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                transform: Matrix4.translationValues(0, _drag / 3, 0),
+                width: _hovered ? 44 : 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: _hovered ? colors.textTertiary : colors.strokeStrong,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

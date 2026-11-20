@@ -456,6 +456,20 @@ void main() {
     expect(find.textContaining('Screenshot · '), findsOneWidget);
     expect(find.textContaining('2880 × 1800'), findsOneWidget);
   });
+  testWidgets('The shelf handle closes the shelf on a click or a drag down', (
+    tester,
+  ) async {
+    await load(tester);
+    await tester.tap(find.byTooltip('Close (esc)'));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'hide'), hasLength(1));
+    await tester.drag(find.byTooltip('Close (esc)'), const Offset(0, 40));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'hide'), hasLength(2));
+    await tester.drag(find.byTooltip('Close (esc)'), const Offset(0, -40));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'hide'), hasLength(2)); // up: no
+  });
   testWidgets('Menu-bar panel opens the snippet editor in one click', (
     tester,
   ) async {

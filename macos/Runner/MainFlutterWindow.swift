@@ -261,7 +261,7 @@ final class ClipboardBridge: NSObject {
     InstallEventHandler(GetApplicationEventTarget(), { _, _, pointer in
       guard let pointer = pointer else { return OSStatus(eventNotHandledErr) }
       let bridge = Unmanaged<ClipboardBridge>.fromOpaque(pointer).takeUnretainedValue()
-      DispatchQueue.main.async { bridge.show() }
+      DispatchQueue.main.async { bridge.toggleShelf() }
       return noErr
     }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handler)
     let result = RegisterEventHotKey(UInt32(kVK_ANSI_V), UInt32(cmdKey | optionKey),
@@ -405,9 +405,49 @@ final class ClipboardBridge: NSObject {
     let wasVisible = window?.isVisible == true
     panelGeneration += 1
     saveFloatingFrame()
-    window?.orderOut(nil)
+    if wasVisible, presentation == "shelf", let window = window {
+      slideShelfOut(window, generation: panelGeneration)
+    } else {
+      window?.orderOut(nil)
+    }
     stopOutsideClickMonitoring()
     if wasVisible { channel.invokeMethod("closed", arguments: nil) }
+  }
+  /// ⌥⌘V opens the shelf, and closes it again when it is already showing.
+  @objc func toggleShelf() {
+    if presentation == "shelf", window?.isVisible == true { dismissPanel() } else { show() }
+  }
+  /// Where the shelf starts (opening) or ends (closing) its slide: a little
+  /// below its resting frame. With Reduce Motion it only fades.
+  static func shelfSlideFrame(_ frame: NSRect, reduceMotion: Bool) -> NSRect {
+    reduceMotion ? frame : frame.offsetBy(dx: 0, dy: -28)
+  }
+  private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+  func slideShelfIn(_ window: NSWindow) {
+    let target = window.frame
+    window.alphaValue = 0
+    window.setFrame(Self.shelfSlideFrame(target, reduceMotion: reduceMotion), display: false)
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0.22
+      context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+      window.animator().setFrame(target, display: true)
+      window.animator().alphaValue = 1
+    }
+  }
+  func slideShelfOut(_ window: NSWindow, generation: Int) {
+    let resting = window.frame
+    NSAnimationContext.runAnimationGroup({ context in
+      context.duration = 0.18
+      context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+      window.animator().setFrame(Self.shelfSlideFrame(resting, reduceMotion: reduceMotion), display: true)
+      window.animator().alphaValue = 0
+    }, completionHandler: { [weak self] in
+      // Reopened mid-animation: the newer session owns the window now.
+      guard let self = self, self.panelGeneration == generation else { return }
+      window.orderOut(nil)
+      window.alphaValue = 1
+      window.setFrame(resting, display: false)
+    })
   }
   func presentPanel() {
     panelGeneration += 1
@@ -468,8 +508,10 @@ final class ClipboardBridge: NSObject {
     if wasQuick, let window = window {
       window.setContentSize(NSSize(width: 1120, height: shelfHeight))
     }
+    let wasHidden = window?.isVisible != true
     positionShelf()
     presentPanel()
+    if wasHidden, let window = window { slideShelfIn(window) } else { window?.alphaValue = 1 }
     channel.invokeMethod("opened", arguments: "shelf")
     publish()
   }

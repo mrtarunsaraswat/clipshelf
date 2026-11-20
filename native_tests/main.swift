@@ -273,6 +273,10 @@ let sizedPNG = sizeRep.representation(using: .png, properties: [:])!
 check(Clip.pixelSize(of: sizedPNG).map { $0 == (30, 20) } == true, "image cards read the original pixel size")
 check(ClipIcons.file("/nonexistent/backup.zip") != nil, "file cards get a type icon even when the file is gone")
 
+let restingShelf = NSRect(x: 12, y: 12, width: 1400, height: 430)
+check(ClipboardBridge.shelfSlideFrame(restingShelf, reduceMotion: false) == restingShelf.offsetBy(dx: 0, dy: -28), "shelf slides up from just below its resting frame")
+check(ClipboardBridge.shelfSlideFrame(restingShelf, reduceMotion: true) == restingShelf, "Reduce Motion: the shelf only fades")
+
 let localGroup = "ABCDE12345.clipshelf"
 check(WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "ABCDE12345"), "macOS Team-ID group accepts its actual signing team")
 check(!WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "OTHER12345"), "macOS Team-ID group rejects a different signer")
