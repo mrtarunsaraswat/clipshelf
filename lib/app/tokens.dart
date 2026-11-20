@@ -165,8 +165,13 @@ abstract final class ShelfRadius {
   static const sm = 8.0, md = 12.0, lg = 16.0;
 }
 
-/// SF Pro type scale. Numbers use tabular figures so ⌘1–⌘9 line up.
+/// Type scale. Numbers use tabular figures so ⌘1–⌘9 line up.
 abstract final class ShelfType {
+  /// Bundled Geist (Google Fonts). SF Pro fills in glyphs Geist lacks, such
+  /// as ⌘ ⌥ ↩ and the arrows used on keycaps.
+  static const family = 'Geist';
+  static const monoFamily = 'GeistMono';
+  static const fallback = ['.AppleSystemUIFont'];
   static const caption = 11.0, meta = 12.0, body = 13.0, title = 15.0;
   static const heading = 17.0;
   static const tabular = [FontFeature.tabularFigures()];

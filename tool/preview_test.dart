@@ -19,9 +19,26 @@ void main() {
         ),
       );
     await tester.runAsync(() => font.load());
-    final icons = FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-    await tester.runAsync(() => icons.load());
+    // The app's bundled Geist fonts, as declared in pubspec.yaml. Create the
+    // byte futures inside runAsync: futures made in the test's fake-async zone
+    // never complete while awaited in real time.
+    await tester.runAsync(() async {
+      for (final (family, weights) in [
+        ('Geist', ['Regular', 'Medium', 'SemiBold', 'Bold']),
+        ('GeistMono', ['Regular', 'Medium']),
+      ]) {
+        final loader = FontLoader(family);
+        for (final weight in weights) {
+          final bytes = File('assets/fonts/$family-$weight.ttf')
+              .readAsBytesSync();
+          loader.addFont(Future.value(ByteData.sublistView(bytes)));
+        }
+        await loader.load();
+      }
+      final icons = FontLoader('MaterialIcons')
+        ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+      await icons.load();
+    });
     const floatingPreview = bool.fromEnvironment('FLOATING_PREVIEW');
     const quickPreview =
         bool.fromEnvironment('QUICK_PREVIEW') || floatingPreview;

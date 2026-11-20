@@ -261,8 +261,10 @@ class _CardBody extends StatelessWidget {
                 fontSize: code ? ShelfType.meta : ShelfType.body,
                 height: code ? 1.5 : 1.45,
                 color: link != null ? colors.textSecondary : colors.textPrimary,
-                fontFamily: code ? '.AppleSystemUIFontMonospaced' : null,
-                fontFamilyFallback: code ? const ['Menlo', 'monospace'] : null,
+                fontFamily: code ? ShelfType.monoFamily : null,
+                fontFamilyFallback: code
+                    ? const ['Menlo', ...ShelfType.fallback]
+                    : null,
               ),
             ),
           ],

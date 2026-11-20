@@ -26,7 +26,8 @@ ThemeData buildAppTheme(
     useMaterial3: true,
     brightness: brightness,
     colorScheme: scheme,
-    fontFamily: '.AppleSystemUIFont',
+    fontFamily: ShelfType.family,
+    fontFamilyFallback: ShelfType.fallback,
   );
   return base.copyWith(
     extensions: [colors],
@@ -41,7 +42,8 @@ ThemeData buildAppTheme(
     iconTheme: IconThemeData(color: colors.textSecondary, size: 18),
     listTileTheme: ListTileThemeData(
       titleTextStyle: TextStyle(
-        fontFamily: '.AppleSystemUIFont',
+        fontFamily: ShelfType.family,
+        fontFamilyFallback: ShelfType.fallback,
         fontSize: 14,
         fontWeight: FontWeight.w500,
         color: colors.textPrimary,
