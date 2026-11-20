@@ -37,6 +37,26 @@ struct Clip: Codable {
   var pixelWidth: Int? = nil
   var pixelHeight: Int? = nil
   var retained: Bool { snippet || boardID != nil }
+  /// Pasteboard types some apps regenerate on every copy (VS Code, Chrome and
+  /// other Chromium apps), which must not make a repeat copy look new.
+  static let volatileTypes: Set<String> = ["org.chromium.web-custom-data", "org.chromium.source-url",
+    "com.apple.webarchive", "com.microsoft.appbundleid"]
+  /// Same content as [other], ignoring per-copy metadata: text by its text,
+  /// files by path, images by their thumbnail, anything else by its data.
+  func sameContent(as other: Clip) -> Bool {
+    guard kind == other.kind else { return false }
+    switch kind {
+    case "text", "file": return !text.isEmpty && text == other.text
+    case "image":
+      if let preview = preview, let otherPreview = other.preview { return preview == otherPreview }
+      return items == other.items
+    default:
+      func stable(_ items: [[String: Data]]) -> [[String: Data]] {
+        items.map { $0.filter { !Self.volatileTypes.contains($0.key) } }
+      }
+      return stable(items) == stable(other.items)
+    }
+  }
   /// Reads an encoded image's pixel size without decoding it.
   static func pixelSize(of data: Data) -> (Int, Int)? {
     guard let source = CGImageSourceCreateWithData(data as CFData, nil),
@@ -704,7 +724,8 @@ final class ClipboardBridge: NSObject {
       }
       recentImageFingerprint = fingerprint; recentImageID = clip.id; recentImageDate = clip.date
     }
-    if let index = archive.clips.firstIndex(where: { !$0.retained && $0.items == items }) { archive.clips.remove(at: index) }
+    // Copying the same thing again moves it to the front instead of adding a duplicate.
+    if let index = archive.clips.firstIndex(where: { !$0.retained && $0.sameContent(as: clip) }) { archive.clips.remove(at: index) }
     archive.clips.insert(clip, at: 0)
     trim(); persist(); publish()
   }

@@ -96,10 +96,23 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
       }
     });
     ref.listen(panelSessionProvider, (previous, next) {
-      // Menus belong to the visible panel session. Keep Preferences/editor dialogs,
-      // but never reveal a menu left behind when the native window was hidden.
+      // Menus belong to the visible panel session: never reveal one left
+      // behind when the native window was hidden.
       Navigator.of(context)
           .popUntil((route) => route is! PopupRoute || route is DialogRoute);
+      if (next.visible) {
+        // Reopening starts at the clipboard. Editors keep their drafts, and
+        // Preferences stays when it sent the user to System Settings.
+        final keepPreferences = ref.read(returnToPreferencesProvider);
+        ref.read(returnToPreferencesProvider.notifier).set(false);
+        Navigator.of(context).popUntil(
+          (route) =>
+              route is! DialogRoute ||
+              route.settings.name == editorDialogRoute ||
+              (keepPreferences &&
+                  route.settings.name == preferencesDialogRoute),
+        );
+      }
       if (!next.visible) {
         _searchFocus.unfocus();
         return;

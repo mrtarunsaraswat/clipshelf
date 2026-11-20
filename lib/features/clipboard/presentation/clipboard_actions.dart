@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clipshelf/features/clipboard/application/panel_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/clipboard_controller.dart';
@@ -59,6 +60,8 @@ class ClipboardActions {
   }
 
   Future<void> requestAccessibility() async {
+    // System Settings opens and the panel hides; come back to Preferences.
+    ref.read(returnToPreferencesProvider.notifier).set(true);
     await _run(() => _controller.requestAccessibility());
   }
 
@@ -83,6 +86,7 @@ class ClipboardActions {
   }
 
   Future<void> chooseScreenshotFolder() async {
+    ref.read(returnToPreferencesProvider.notifier).set(true);
     await _run(() => _controller.chooseScreenshotFolder());
   }
 
@@ -109,6 +113,7 @@ class ClipboardActions {
   Future<void> showSnippet([ClipItem? item]) async {
     final draft = await showDialog<SnippetDraft>(
       context: context,
+      routeSettings: const RouteSettings(name: editorDialogRoute),
       builder: (_) => SnippetDialog(initialText: item?.text ?? ''),
     );
     if (draft != null) await _run(() => _controller.createSnippet(draft));
@@ -117,6 +122,7 @@ class ClipboardActions {
   Future<void> showPinboardDialog() async {
     final draft = await showDialog<PinboardDraft>(
       context: context,
+      routeSettings: const RouteSettings(name: editorDialogRoute),
       builder: (_) => const PinboardDialog(),
     );
     if (draft != null) await _run(() => _controller.createPinboard(draft));
@@ -173,6 +179,7 @@ class ClipboardActions {
 
   Future<void> showPreferences() => showDialog<void>(
     context: context,
+    routeSettings: const RouteSettings(name: preferencesDialogRoute),
     builder: (_) => PreferencesDialog(actions: this),
   );
   Future<void> showPreview(ClipItem item) => showDialog<void>(

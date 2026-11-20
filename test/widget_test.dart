@@ -172,19 +172,61 @@ void main() {
     },
   );
 
-  testWidgets('Panel session cleanup preserves an open Preferences dialog', (
+  Future<void> reopenPanel(WidgetTester tester) async {
+    nativePanelEvent(tester, 'closed');
+    await tester.pumpAndSettle();
+    nativePanelEvent(tester, 'opened', 'quick');
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'Reopening the panel closes Preferences and shows the clipboard',
+    (tester) async {
+      presentation = 'quick';
+      await load(tester);
+      await tester.tap(find.byTooltip('Preferences'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Close preferences'), findsOneWidget);
+      await reopenPanel(tester);
+      expect(find.byTooltip('Close preferences'), findsNothing);
+    },
+  );
+
+  testWidgets('Preferences is still open after leaving for Allow access', (
     tester,
   ) async {
     presentation = 'quick';
     await load(tester);
     await tester.tap(find.byTooltip('Preferences'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Close preferences'), findsOneWidget);
-    nativePanelEvent(tester, 'closed');
+    await tester.scrollUntilVisible(
+      find.text('Allow access'),
+      100,
+      scrollable: find
+          .descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
+    await tester.tap(find.text('Allow access'));
     await tester.pumpAndSettle();
-    nativePanelEvent(tester, 'opened', 'quick');
-    await tester.pumpAndSettle();
+    await reopenPanel(tester); // back from System Settings
     expect(find.byTooltip('Close preferences'), findsOneWidget);
+    await reopenPanel(tester); // the next time it starts fresh again
+    expect(find.byTooltip('Close preferences'), findsNothing);
+  });
+
+  testWidgets('A half-written snippet survives hiding and reopening', (
+    tester,
+  ) async {
+    presentation = 'quick';
+    await load(tester);
+    await tester.tap(find.byTooltip('New snippet (⌘N)'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).last, 'Draft text');
+    await reopenPanel(tester);
+    expect(find.text('Draft text'), findsOneWidget);
   });
 
   testWidgets(

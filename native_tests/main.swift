@@ -277,6 +277,26 @@ let restingShelf = NSRect(x: 12, y: 12, width: 1400, height: 430)
 check(ClipboardBridge.shelfSlideFrame(restingShelf, reduceMotion: false) == restingShelf.offsetBy(dx: 0, dy: -28), "shelf slides up from just below its resting frame")
 check(ClipboardBridge.shelfSlideFrame(restingShelf, reduceMotion: true) == restingShelf, "Reduce Motion: the shelf only fades")
 
+let vsCodeCopy = { (session: String) in
+  Clip(id: UUID().uuidString, title: "let x = 1", text: "let x = 1", kind: "text", source: "Code", date: 1, snippet: false,
+    items: [["public.utf8-plain-text": Data("let x = 1".utf8), "org.chromium.web-custom-data": Data(session.utf8)]], preview: nil)
+}
+check(vsCodeCopy("a").sameContent(as: vsCodeCopy("b")), "repeat ⌘C in VS Code is the same item despite changing Chromium data")
+var otherText = vsCodeCopy("a"); otherText.text = "let y = 2"
+check(!vsCodeCopy("a").sameContent(as: otherText), "different text is a different item")
+var asFile = vsCodeCopy("a"); asFile.kind = "file"
+check(!vsCodeCopy("a").sameContent(as: asFile), "a file and text with the same string are different items")
+let dedupeBridge = ClipboardBridge(window: nil, messenger: Messenger(), storageURL: folder.appendingPathComponent("dedupe.json"), pasteboard: MemoryPasteboard(), startMonitoring: false)
+for session in ["one", "two", "three", "four"] {
+  dedupeBridge.pasteboard.clearContents()
+  let item = NSPasteboardItem()
+  item.setString("same text", forType: .string)
+  item.setData(Data(session.utf8), forType: NSPasteboard.PasteboardType("org.chromium.web-custom-data"))
+  _ = dedupeBridge.pasteboard.writeObjects([item])
+  dedupeBridge.capture()
+}
+check(dedupeBridge.archive.clips.filter { $0.text == "same text" }.count == 1, "pressing ⌘C four times keeps one history item")
+
 let localGroup = "ABCDE12345.clipshelf"
 check(WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "ABCDE12345"), "macOS Team-ID group accepts its actual signing team")
 check(!WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "OTHER12345"), "macOS Team-ID group rejects a different signer")

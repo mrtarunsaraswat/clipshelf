@@ -37,6 +37,23 @@ class QuickUseRequestController extends Notifier<QuickUseRequest?> {
       state = QuickUseRequest((state?.sequence ?? 0) + 1, index);
 }
 
+/// Route names that decide which dialogs survive hiding and reopening the panel.
+const editorDialogRoute = 'editor';
+const preferencesDialogRoute = 'preferences';
+
+/// Set when Preferences sends the user to another app (System Settings for
+/// Accessibility, the folder picker), so reopening returns to Preferences.
+final returnToPreferencesProvider =
+    NotifierProvider<ReturnToPreferencesController, bool>(
+      ReturnToPreferencesController.new,
+    );
+
+class ReturnToPreferencesController extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void set(bool value) => state = value;
+}
+
 class PanelSessionController extends Notifier<PanelSession> {
   @override
   PanelSession build() => const PanelSession();
