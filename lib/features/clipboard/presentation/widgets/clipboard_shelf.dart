@@ -300,7 +300,7 @@ class ClipboardShelf extends ConsumerWidget {
                   style: TextStyle(fontSize: 11, color: colors.warningText),
                 ),
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Expanded(
               child: loading
                   ? const Center(child: CircularProgressIndicator())
@@ -313,7 +313,7 @@ class ClipboardShelf extends ConsumerWidget {
                         items: items,
                         controller: listScroll,
                         extent: 248,
-                        padding: const EdgeInsets.fromLTRB(2, 2, 2, 16),
+                        padding: const EdgeInsets.fromLTRB(6, 6, 6, 22),
                         itemBuilder: (context, item, index) => ClipboardCard(
                           item: item,
                           index: index,

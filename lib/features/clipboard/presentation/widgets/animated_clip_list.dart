@@ -164,7 +164,10 @@ class _AnimatedClipListState extends State<AnimatedClipList> {
       controller: widget.controller,
       scrollDirection: widget.axis,
       padding: widget.padding,
-      clipBehavior: Clip.none,
+      // Clip to the list's own area: anything scrolled out of view must not
+      // paint over the search field or the window edges. Callers give the
+      // list enough padding for card shadows instead.
+      clipBehavior: Clip.hardEdge,
       initialItemCount: _items.length,
       itemBuilder: (context, index, animation) => index < _items.length
           ? _wrap(context, _items[index], index, animation)

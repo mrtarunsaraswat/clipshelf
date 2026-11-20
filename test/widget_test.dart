@@ -408,6 +408,16 @@ void main() {
       expect(find.byTooltip('Clear search'), findsOneWidget);
     },
   );
+  testWidgets('Clip lists never paint scrolled-out rows over the header', (
+    tester,
+  ) async {
+    presentation = 'quick';
+    await load(tester);
+    expect(
+      tester.widget<AnimatedList>(find.byType(AnimatedList)).clipBehavior,
+      Clip.hardEdge,
+    );
+  });
   testWidgets('Menu-bar panel opens the snippet editor in one click', (
     tester,
   ) async {
