@@ -1,13 +1,34 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-11-20
 
-- **Desktop widget:** a Large size (up to 12 favorites), a Pause / Resume button, the app icon in the header, and pinboard colours on the header and tiles.
-- **In-app logo** now matches the app icon.
+A fresh look, smarter cards and search, and the desktop widget in the free download.
+
+### New look
+- **Liquid Glass** window on macOS 26, and a frosted glass window on earlier versions.
+- **Dark mode** that follows macOS, using your system accent colour.
+- **Redesigned cards, shelf, menu-bar panel, Preferences, and dialogs**, with the **Geist** typeface (bundled, so no font downloads).
+- The **in-app logo** now matches the app icon.
+
+### Cards and search
+- **Richer cards:** the icon of the app you copied from, "N characters" for text, the pixel size for images, and the icon and path for files.
+- **Link previews (opt-in):** Preferences → History → *Show link previews* shows the page's title and picture. Off by default; when on, ClipShelf contacts only that website, without cookies.
+- **New-copy animation:** new copies slide in at the front; deleted items shrink away.
+- **Smart search:** start typing to search, and add filters for type, date, or source app as chips.
+
+### Desktop widget
+- **Now works in the free download.** Builds without an App Group share favorites through `~/Library/Application Support/ClipShelf/Widget/`, using a sandbox exception scoped to that folder. Team-signed builds still use their App Group.
+- A **Large** size (up to 12 favorites), a **Pause / Resume** button, the app icon in the header, pinboard colours, and a **Copied** state after a click.
+
+### More
 - **History settings:** Preferences → History adds *Keep history for* (Forever, 1 day, 1 week, 1 month) and *History size* (100–1,000 items), with a storage-used meter.
+- **⌘1–⌘9 work while searching** in the menu-bar panel, which also gets a **New snippet** button.
 - **No more duplicates from repeat ⌘C** in VS Code and other Chromium apps; repeat copies move the existing item to the front.
 - **iCloud sync is marked Coming soon** in Preferences for builds without CloudKit provisioning.
-- **Desktop Favorites widget now works in the free download.** Builds without an App Group share favorites through `~/Library/Application Support/ClipShelf/Widget/`, using a sandbox exception scoped to that folder. Team-signed builds still use their App Group.
+
+### Fixes
+- Closing the shelf after opening it from the widget no longer leaves a ghosted, shifted window behind.
+- Preferences no longer flickers when the panel reopens.
 
 ## 1.0.0 — 2026-11-19
 

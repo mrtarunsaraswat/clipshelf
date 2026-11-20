@@ -20,11 +20,14 @@ A fast, private clipboard manager that lives in your Mac's menu bar.
 ## ✨ Why ClipShelf
 
 - **Never lose a copy.** Text, links, images, rich text, and files are saved automatically.
+- **See what you copied.** Each card shows the app it came from, its size (characters or pixels), and, if you turn it on, a preview of the web page behind a link.
 - **Paste in one click.** Pick a clip and it goes straight into the app you were using.
 - **Built for the keyboard.** <kbd>⌥</kbd><kbd>⌘</kbd><kbd>V</kbd> to open, <kbd>⌘</kbd><kbd>1</kbd>–<kbd>9</kbd> to paste.
-- **Keep what matters.** Save snippets and sort clips into colored pinboards.
+- **Find anything fast.** Start typing to search, and narrow it down with filters for type (Link, Image…), date (Today, Last week…), or app (Safari, Mail…).
+- **Keep what matters.** Save snippets and sort clips into colored pinboards: just drag a card onto a pinboard.
 - **Screenshots included.** Screenshots you take are copied and saved to your history.
-- **Favorites on your desktop.** A widget puts your snippets one click away (macOS 14+).
+- **Favorites on your desktop.** A widget in three sizes puts your snippets or a pinboard one click away, with a Pause button for capture (macOS 14+).
+- **Looks at home on your Mac.** Liquid Glass on macOS 26, a frosted window on earlier versions, and light or dark to match macOS.
 - **Private by design.** Everything stays on your Mac. No account, no server, no tracking.
 
 ## 🖼️ A look inside
@@ -34,7 +37,13 @@ A fast, private clipboard manager that lives in your Mac's menu bar.
     <td align="center" width="50%"><img src="menu-bar-preview.png" alt="Menu-bar panel" width="300"><br><b>Menu-bar panel</b><br>Search and paste without leaving your app</td>
     <td align="center" width="50%"><img src="floating-preview.png" alt="Floating panel" width="300"><br><b>Floating panel</b><br>Pin it next to your work</td>
   </tr>
+  <tr>
+    <td align="center" width="50%"><img src="widget-medium-preview.png" alt="Desktop widget" width="300"><br><b>Desktop widget</b><br>Copy a snippet or pinboard item in one click</td>
+    <td align="center" width="50%"><img src="widget-large-dark-preview.png" alt="Large desktop widget in dark mode" width="300"><br><b>Large widget, dark mode</b><br>Up to 12 favorites</td>
+  </tr>
 </table>
+
+<p align="center"><img src="preview-dark.png" alt="The shelf in dark mode" width="820"><br><b>Dark mode</b> follows your Mac.</p>
 
 ## 🚀 Install
 
@@ -72,11 +81,12 @@ Open **System Settings → Privacy & Security → Accessibility** and turn on **
 | <kbd>⌥</kbd><kbd>⌘</kbd><kbd>V</kbd> | Open the shelf |
 | <kbd>⌘</kbd><kbd>1</kbd> … <kbd>⌘</kbd><kbd>9</kbd> | Paste one of the first nine clips |
 | <kbd>Return</kbd> | Paste the selected clip |
-| <kbd>⌘</kbd><kbd>F</kbd> | Search |
+| <kbd>⌘</kbd><kbd>F</kbd> or just start typing | Search |
+| <kbd>↓</kbd> <kbd>Return</kbd> or <kbd>Tab</kbd> in search | Add the highlighted filter (Link, Last week, Safari…) |
 | <kbd>Space</kbd> | Preview |
 | <kbd>⌘</kbd><kbd>N</kbd> | New snippet |
 | <kbd>⇧</kbd><kbd>⌘</kbd><kbd>N</kbd> | New pinboard |
-| <kbd>Esc</kbd> | Hide |
+| <kbd>Esc</kbd> | Step back: close the filter list, clear and close search, then hide |
 
 ClipShelf has no Dock icon. Find it in the menu bar, and right-click the icon for Pause and Quit.
 
@@ -88,6 +98,15 @@ ClipShelf has no Dock icon. Find it in the menu bar, and right-click the icon fo
 <br>
 
 Only on your Mac, in `~/Library/Application Support/ClipShelf/`. By default ClipShelf keeps your 200 most recent clips; in **Preferences → History** you can keep 100 to 1,000 items and have older ones removed automatically after a day, a week or a month. Snippets and pinned items are kept until you delete them.
+
+</details>
+
+<details>
+<summary><b>Does ClipShelf go online?</b></summary>
+
+<br>
+
+Not unless you ask it to. **Link previews** are off by default. If you turn them on in **Preferences → History**, ClipShelf fetches the title and picture of each link you copy, straight from that website, without cookies, and keeps them on your Mac. Nothing else leaves your Mac.
 
 </details>
 
@@ -105,7 +124,7 @@ ClipShelf skips copies that password managers mark as concealed. Some apps don't
 
 <br>
 
-On macOS 14 or later, turn on **Desktop Favorites widget** in ClipShelf's Preferences. Then right-click the desktop, choose **Edit Widgets…**, and add **ClipShelf Favorites**. Right-click the widget → **Edit Widget** to pick Snippets or a pinboard. Click a favorite to copy it. After updating ClipShelf, you may need to remove and re-add the widget.
+On macOS 14 or later, turn on **Desktop Favorites widget** in ClipShelf's Preferences. Then right-click the desktop, choose **Edit Widgets…**, and add **ClipShelf Favorites** in the Small, Medium, or Large size. Right-click the widget → **Edit Widget** to pick Snippets or a pinboard. Click a favorite to copy it; the ⏸ button pauses or resumes capture, and **Open history** opens the shelf. After updating ClipShelf, you may need to remove and re-add the widget.
 
 </details>
 
