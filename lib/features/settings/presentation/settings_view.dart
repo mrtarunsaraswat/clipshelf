@@ -253,13 +253,38 @@ class SettingsView extends ConsumerWidget {
           ],
         ),
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            'ClipShelf 1.0.0 · ⌥⌘V to open · ⌘N for a new snippet',
-            style: TextStyle(
-              fontSize: ShelfType.caption,
-              color: colors.textTertiary,
-            ),
+          padding: const EdgeInsets.only(top: 4, bottom: 12),
+          child: Column(
+            children: [
+              Text(
+                'ClipShelf 1.0.0 · ⌥⌘V to open · ⌘N for a new snippet',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: ShelfType.caption,
+                  color: colors.textTertiary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              // The developer's signature.
+              Text.rich(
+                TextSpan(
+                  text: 'Made with ',
+                  children: [
+                    TextSpan(
+                      text: '♥',
+                      style: TextStyle(color: colors.danger),
+                    ),
+                    const TextSpan(text: ' by Tarun Sharma'),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: ShelfType.meta,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
       ],
