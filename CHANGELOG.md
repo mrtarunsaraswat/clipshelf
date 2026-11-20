@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Desktop widget:** a Large size (up to 12 favorites), a Pause / Resume button, the app icon in the header, and pinboard colours on the header and tiles.
+- **In-app logo** now matches the app icon.
 - **History settings:** Preferences → History adds *Keep history for* (Forever, 1 day, 1 week, 1 month) and *History size* (100–1,000 items), with a storage-used meter.
 - **No more duplicates from repeat ⌘C** in VS Code and other Chromium apps; repeat copies move the existing item to the front.
 - **iCloud sync is marked Coming soon** in Preferences for builds without CloudKit provisioning.

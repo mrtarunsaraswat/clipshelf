@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipshelf/app/theme.dart';
+import 'package:clipshelf/app/widgets/app_logo.dart';
 import 'package:clipshelf/app/widgets/keycap.dart';
 import 'package:clipshelf/app/widgets/toolbar_button.dart';
 import 'package:clipshelf/features/clipboard/application/clipboard_controller.dart';
@@ -113,7 +114,7 @@ class ClipboardShelf extends ConsumerWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                Icon(Icons.layers_rounded, color: colors.accentText, size: 22),
+                const AppLogo(size: 24),
                 const SizedBox(width: 8),
                 const Text(
                   'ClipShelf',

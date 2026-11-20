@@ -235,6 +235,11 @@ final class ClipboardBridge: NSObject {
   var outsideClickMonitor: Any?
   var localClickMonitor: Any?
   var panelGeneration = 0
+  /// True while the shelf slides out. The window is still visible then, so
+  /// without this a second dismissal (outside click + focus change + app
+  /// resign all fire together) would start another slide from the half-moved
+  /// frame, and a reopen would skip its slide-in.
+  var shelfClosing = false
   let checkAccessibility: () -> Bool
   var accessibilityGranted: Bool
   var status: NSStatusItem?
@@ -331,6 +336,7 @@ final class ClipboardBridge: NSObject {
       self?.capture()
       self?.refreshScreenshotFolderIfNeeded()
       self?.expireOldHistory()
+      self?.applyWidgetCaptureRequest()
     }
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appActivated(_:)), name: NSWorkspace.didActivateApplicationNotification, object: nil)
     NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(appResigned), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
@@ -448,6 +454,7 @@ final class ClipboardBridge: NSObject {
     if presentation == "floating" { floating.frame = window?.frame }
   }
   @objc func showFloating() {
+    interruptClosing()
     rememberTarget()
     if presentation == "shelf" { shelfHeight = window?.frame.height ?? 430 }
     presentation = "floating"
@@ -462,10 +469,12 @@ final class ClipboardBridge: NSObject {
     publish()
   }
   func dismissPanel() {
+    if shelfClosing { return }
     let wasVisible = window?.isVisible == true
     panelGeneration += 1
     saveFloatingFrame()
     if wasVisible, presentation == "shelf", let window = window {
+      shelfClosing = true
       slideShelfOut(window, generation: panelGeneration)
     } else {
       window?.orderOut(nil)
@@ -509,12 +518,26 @@ final class ClipboardBridge: NSObject {
     }, completionHandler: { [weak self] in
       // Reopened mid-animation: the newer session owns the window now.
       guard let self = self, self.panelGeneration == generation else { return }
+      self.shelfClosing = false
       window.orderOut(nil)
       window.alphaValue = 1
       window.setFrame(resting, display: false)
     })
   }
+  /// Reopened while the shelf is sliding out: stop that animation where it is
+  /// and restore full opacity, so the caller starts from a clean window.
+  func interruptClosing() {
+    guard shelfClosing, let window = window else { return }
+    shelfClosing = false
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0
+      window.animator().setFrame(window.frame, display: false)
+      window.animator().alphaValue = 1
+    }
+    window.alphaValue = 1
+  }
   func presentPanel() {
+    interruptClosing()
     panelGeneration += 1
     refreshAccessibility()
     window?.makeKeyAndOrderFront(nil)
@@ -545,6 +568,8 @@ final class ClipboardBridge: NSObject {
     return NSRect(x: x, y: y, width: width, height: height)
   }
   func showQuick() {
+    let wasClosing = shelfClosing
+    interruptClosing()
     saveFloatingFrame()
     rememberTarget()
     if presentation == "shelf" { shelfHeight = window?.frame.height ?? 430 }
@@ -559,7 +584,7 @@ final class ClipboardBridge: NSObject {
     }
     // A short fade-in: smoother, and it covers the frame Flutter needs to
     // redraw the reopened panel.
-    let fadeIn = window?.isVisible != true
+    let fadeIn = window?.isVisible != true || wasClosing
     if fadeIn { window?.alphaValue = 0 }
     presentPanel()
     if fadeIn, let window = window {
@@ -586,7 +611,8 @@ final class ClipboardBridge: NSObject {
     if wasQuick, let window = window {
       window.setContentSize(NSSize(width: 1120, height: shelfHeight))
     }
-    let wasHidden = window?.isVisible != true
+    let wasHidden = window?.isVisible != true || shelfClosing
+    interruptClosing()
     positionShelf()
     presentPanel()
     if wasHidden, let window = window { slideShelfIn(window) } else { window?.alphaValue = 1 }

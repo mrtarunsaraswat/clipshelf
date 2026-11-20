@@ -61,6 +61,8 @@ flutter:
   # assets/fonts/OFL.txt). Bundled so the app never fetches fonts at runtime.
   assets:
     - assets/fonts/OFL.txt
+    # The app icon, shown as the logo in the shelf and panel headers.
+    - assets/images/app_icon.png
   fonts:
     - family: Geist
       fonts:

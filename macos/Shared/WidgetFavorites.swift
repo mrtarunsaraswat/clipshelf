@@ -11,15 +11,29 @@ struct WidgetCollection: Codable, Equatable, Identifiable {
   let name: String
   let items: [WidgetFavorite]
   let total: Int
+  /// The pinboard's colour index (as in the app); nil for Snippets. Optional
+  /// so snapshots written by older builds still decode.
+  var colorIndex: Int? = nil
 }
 struct WidgetFavorites: Codable, Equatable {
   var enabled: Bool
   var collections: [WidgetCollection]
+  /// Whether clipboard capture is paused, for the widget's Pause button.
+  var paused: Bool? = nil
   static let empty = WidgetFavorites(enabled: false, collections: [])
+  /// Most favorites any widget size shows (Large shows 12).
+  static let maxItems = 12
   /// Copy must preserve the whole value. Large entries stay in the main app.
-  static func collection(id: String, name: String, items: [WidgetFavorite]) -> WidgetCollection {
-    WidgetCollection(id: id, name: String(name.prefix(60)), items: Array(items.filter { !$0.text.isEmpty && $0.text.utf8.count <= 8192 }.prefix(6)).map { WidgetFavorite(id: $0.id, title: String($0.title.prefix(80)), text: $0.text) }, total: items.count)
+  static func collection(id: String, name: String, items: [WidgetFavorite], colorIndex: Int? = nil) -> WidgetCollection {
+    WidgetCollection(id: id, name: String(name.prefix(60)), items: Array(items.filter { !$0.text.isEmpty && $0.text.utf8.count <= 8192 }.prefix(maxItems)).map { WidgetFavorite(id: $0.id, title: String($0.title.prefix(80)), text: $0.text) }, total: items.count, colorIndex: colorIndex)
   }
+}
+/// A Pause / Resume tap in the widget. The widget can't change the app's
+/// state itself, so it leaves this request in the shared folder and the app
+/// applies it on its next capture tick.
+struct WidgetCaptureRequest: Codable, Equatable {
+  let paused: Bool
+  let date: Date
 }
 struct WidgetCopyFeedback: Codable {
   let id: String
@@ -109,6 +123,21 @@ struct WidgetFavoritesStore {
     guard let directory = directory else { return }
     let data = try JSONEncoder().encode(WidgetCopyFeedback(id: id, date: Date()))
     try data.write(to: directory.appendingPathComponent("widget-copied.json"), options: .atomic)
+  }
+  private var captureRequestFile: URL? { directory?.appendingPathComponent("widget-capture-request.json") }
+  /// Called by the widget's Pause / Resume button.
+  func requestCapture(paused: Bool, now: Date = Date()) throws {
+    guard let file = captureRequestFile else { return }
+    try JSONEncoder().encode(WidgetCaptureRequest(paused: paused, date: now)).write(to: file, options: .atomic)
+  }
+  /// Called by the app: returns and removes a pending request. Requests older
+  /// than two minutes (e.g. tapped while ClipShelf wasn't running) are dropped.
+  func takeCaptureRequest(now: Date = Date()) -> Bool? {
+    guard let file = captureRequestFile, let data = try? Data(contentsOf: file) else { return nil }
+    try? FileManager.default.removeItem(at: file)
+    guard let request = try? JSONDecoder().decode(WidgetCaptureRequest.self, from: data),
+      abs(now.timeIntervalSince(request.date)) < 120 else { return nil }
+    return request.paused
   }
   func copiedID(now: Date = Date()) -> String? {
     guard let directory = directory,

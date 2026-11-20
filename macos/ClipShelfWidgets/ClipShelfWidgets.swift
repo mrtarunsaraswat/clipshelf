@@ -51,6 +51,35 @@ struct CopyFavoriteIntent: AppIntent {
     }
   }
 }
+/// The widget's Pause / Resume button. The app applies the request within
+/// about a second and refreshes the widget.
+struct SetCapturePausedIntent: AppIntent {
+  static var title: LocalizedStringResource = "Pause or resume ClipShelf"
+  static var description = IntentDescription("Pause or resume clipboard capture.")
+  static var openAppWhenRun = false
+  @Parameter(title: "Paused") var paused: Bool
+  init() {}
+  init(paused: Bool) { self.paused = paused }
+  func perform() async throws -> some IntentResult {
+    try WidgetFavoritesStore.live().requestCapture(paused: paused)
+    return .result()
+  }
+}
+/// ClipShelf's app icon (64 px), embedded so the widget needs no asset catalog.
+enum WidgetArtwork {
+  static let appIcon: NSImage? = Data(base64Encoded: "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").flatMap(NSImage.init(data:))
+  /// Pinboard colours, matching the app's palette; Snippets use purple.
+  static let boards: [Color] = [
+    Color(red: 0.36, green: 0.50, blue: 0.87), Color(red: 0.91, green: 0.54, blue: 0.31),
+    Color(red: 0.68, green: 0.46, blue: 0.80), Color(red: 0.33, green: 0.65, blue: 0.55),
+    Color(red: 0.84, green: 0.47, blue: 0.56), Color(red: 0.78, green: 0.66, blue: 0.29),
+  ]
+  static let snippets = Color(red: 0.61, green: 0.36, blue: 0.78)
+  static func tint(for collection: WidgetCollection?) -> Color {
+    guard let index = collection?.colorIndex else { return snippets }
+    return boards[abs(index) % boards.count]
+  }
+}
 struct FavoritesEntry: TimelineEntry {
   let date: Date
   let collection: WidgetCollection?
@@ -58,6 +87,7 @@ struct FavoritesEntry: TimelineEntry {
   let showPreviews: Bool
   let copiedID: String?
   var storageAvailable: Bool = true
+  var paused: Bool = false
 }
 struct FavoritesProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> FavoritesEntry {
@@ -71,7 +101,8 @@ struct FavoritesProvider: AppIntentTimelineProvider {
   func timeline(for configuration: FavoritesConfiguration, in context: Context) async -> Timeline<FavoritesEntry> {
     let first = entry(configuration)
     let cleared = FavoritesEntry(date: Date().addingTimeInterval(10), collection: first.collection,
-      enabled: first.enabled, showPreviews: first.showPreviews, copiedID: nil, storageAvailable: first.storageAvailable)
+      enabled: first.enabled, showPreviews: first.showPreviews, copiedID: nil, storageAvailable: first.storageAvailable,
+      paused: first.paused)
     return Timeline(entries: first.copiedID == nil ? [first] : [first, cleared], policy: .after(Date().addingTimeInterval(900)))
   }
   private func entry(_ configuration: FavoritesConfiguration) -> FavoritesEntry {
@@ -80,7 +111,8 @@ struct FavoritesProvider: AppIntentTimelineProvider {
     let collection = configuration.collection.map { selected in data.collections.first { $0.id == selected.id } }
       ?? data.collections.first
     return FavoritesEntry(date: Date(), collection: collection, enabled: data.enabled,
-      showPreviews: configuration.showPreviews, copiedID: store.copiedID(), storageAvailable: store.available)
+      showPreviews: configuration.showPreviews, copiedID: store.copiedID(), storageAvailable: store.available,
+      paused: data.paused ?? false)
   }
 }
 /// ImageRenderer cannot draw a system Link; preview builds render the identical label.
@@ -119,7 +151,11 @@ struct FavoritesContentView: View {
       if !entry.enabled {
         message(entry.storageAvailable ? "Enable Desktop Favorites in ClipShelf Preferences." : "Open ClipShelf once to set up Favorites.")
       } else if let collection = entry.collection, !collection.items.isEmpty {
-        let limit = entry.showPreviews ? (family == .systemSmall ? 2 : 4) : (family == .systemSmall ? 3 : 6)
+        let limit = switch family {
+        case .systemSmall: entry.showPreviews ? 2 : 3
+        case .systemLarge: entry.showPreviews ? 8 : 12
+        default: entry.showPreviews ? 4 : 6
+        }
         if family == .systemSmall {
           ForEach(Array(collection.items.prefix(limit))) { item in favoriteRow(item) }
         } else {
@@ -141,27 +177,57 @@ struct FavoritesContentView: View {
     }
     .containerBackground(for: .widget) {
       if fullColor {
-        LinearGradient(colors: [Color.accentColor.opacity(0.10), Color.clear], startPoint: .topLeading, endPoint: .center)
+        LinearGradient(colors: [tint.opacity(0.12), Color.clear], startPoint: .topLeading, endPoint: .center)
           .background(.background)
       } else {
         Color.clear
       }
     }
   }
+  private var tint: Color { WidgetArtwork.tint(for: entry.collection) }
   private var header: some View {
-    HStack(spacing: 7) {
-      Image(systemName: "list.clipboard.fill")
-        .font(.system(size: 11, weight: .semibold))
-        .foregroundStyle(.white)
-        .frame(width: 20, height: 20)
-        .background(Color.accentColor.gradient, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-        .widgetAccentable()
-      Text(entry.collection?.name ?? "Favorites").font(.system(size: 13, weight: .semibold)).lineLimit(1)
-      Spacer(minLength: 0)
-      FavoritesLink(destination: floatingURL) {
-        Image(systemName: "arrow.up.forward.app").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(spacing: 7) {
+        appIcon
+        if entry.collection?.colorIndex != nil {
+          Circle().fill(tint).frame(width: 7, height: 7).widgetAccentable()
+        }
+        Text(entry.collection?.name ?? "Favorites").font(.system(size: 13, weight: .semibold)).lineLimit(1)
+        Spacer(minLength: 0)
+        if entry.enabled {
+          Button(intent: SetCapturePausedIntent(paused: !entry.paused)) {
+            Image(systemName: entry.paused ? "play.fill" : "pause.fill")
+              .font(.system(size: 10, weight: .bold))
+              .foregroundStyle(entry.paused ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+              .frame(width: 22, height: 22)
+              .background(.quaternary, in: Circle())
+              .contentTransition(.symbolEffect(.replace))
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(entry.paused ? "Resume clipboard capture" : "Pause clipboard capture")
+        }
+        FavoritesLink(destination: floatingURL) {
+          Image(systemName: "arrow.up.forward.app").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+        }
+        .accessibilityLabel("Open floating panel")
       }
-      .accessibilityLabel("Open floating panel")
+      if entry.enabled && entry.paused {
+        Label("Capture paused", systemImage: "pause.circle.fill")
+          .font(.caption2.weight(.medium)).foregroundStyle(.orange).lineLimit(1)
+      }
+    }
+  }
+  /// The real app icon; a tinted glyph if it can't load. In tinted / accented
+  /// desktop styles it is shown desaturated, like other apps' icons.
+  @ViewBuilder private var appIcon: some View {
+    if let icon = WidgetArtwork.appIcon {
+      if #available(macOS 15.0, *) {
+        Image(nsImage: icon).resizable().widgetAccentedRenderingMode(.accentedDesaturated).frame(width: 20, height: 20)
+      } else {
+        Image(nsImage: icon).resizable().frame(width: 20, height: 20)
+      }
+    } else {
+      Image(systemName: "list.clipboard.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(tint).widgetAccentable()
     }
   }
   private func message(_ text: String) -> some View {
@@ -169,7 +235,7 @@ struct FavoritesContentView: View {
       Spacer(minLength: 0)
       Text(text).font(.caption).foregroundStyle(.secondary)
       FavoritesLink("Open ClipShelf", destination: floatingURL).font(.caption.bold())
-        .foregroundStyle(Color.accentColor).widgetAccentable()
+        .foregroundStyle(tint).widgetAccentable()
       Spacer(minLength: 0)
     }
   }
@@ -195,7 +261,7 @@ struct FavoritesContentView: View {
       .frame(maxWidth: .infinity, alignment: .leading)
       .background {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
-          .fill(fullColor ? AnyShapeStyle((copied ? Color.green : Color.accentColor).opacity(0.12)) : AnyShapeStyle(.quaternary))
+          .fill(fullColor ? AnyShapeStyle((copied ? Color.green : tint).opacity(0.13)) : AnyShapeStyle(.quaternary))
       }
       .overlay {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -217,7 +283,7 @@ struct ClipShelfFavoritesWidget: Widget {
     }
     .configurationDisplayName("ClipShelf Favorites")
     .description("Copy saved text from your snippets and pinboards.")
-    .supportedFamilies([.systemSmall, .systemMedium])
+    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
   }
 }
 
