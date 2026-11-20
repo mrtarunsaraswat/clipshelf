@@ -220,7 +220,7 @@ class QuickPanel extends ConsumerWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${items.length} items',
+                  '${items.length} ${items.length == 1 ? 'item' : 'items'}',
                   style: TextStyle(
                     fontSize: ShelfType.caption,
                     color: colors.textTertiary,

@@ -133,6 +133,27 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // Search open with suggestions, rendered into build/ for review.
+    if (const bool.fromEnvironment('SEARCH_PREVIEW')) {
+      await tester.tap(find.byTooltip('Search (⌘F)'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'l');
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byKey(const ValueKey('preview')),
+        matchesGoldenFile('../build/search-preview${dark ? '-dark' : ''}.png'),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.enterText(find.byType(TextField), 'sa');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byKey(const ValueKey('preview')),
+        matchesGoldenFile('../build/search-chips${dark ? '-dark' : ''}.png'),
+      );
+      return;
+    }
     if (preferencesPreview) {
       await tester.tap(find.byTooltip('Preferences'));
       await tester.pumpAndSettle();

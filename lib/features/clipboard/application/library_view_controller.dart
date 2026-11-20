@@ -50,7 +50,11 @@ class LibraryViewState {
     this.collection = const ClipboardCollection.history(),
     this.selectedID,
     this.tokens = const [],
+    this.searchOpen = false,
   });
+
+  /// The shelf shows its search field in place of the collection tabs.
+  final bool searchOpen;
   final String query;
 
   /// Filter chips in the search field (Link, Last week, Mail…).
@@ -64,8 +68,10 @@ class LibraryViewState {
     ClipboardCollection? collection,
     String? selectedID,
     List<SearchToken>? tokens,
+    bool? searchOpen,
     bool clearSelection = false,
   }) => LibraryViewState(
+    searchOpen: searchOpen ?? this.searchOpen,
     tokens: tokens ?? this.tokens,
     query: query ?? this.query,
     filter: filter ?? this.filter,
@@ -108,6 +114,19 @@ class LibraryViewController extends Notifier<LibraryViewState> {
     tokens: [...state.tokens]..remove(token),
     clearSelection: true,
   );
+
+  void openSearch() => state = state.copyWith(searchOpen: true);
+
+  /// Closes search and drops its text and chips.
+  void closeSearch() => state = state.copyWith(
+    searchOpen: false,
+    query: '',
+    tokens: const [],
+    clearSelection: true,
+  );
+
+  void clearSearch() =>
+      state = state.copyWith(query: '', tokens: const [], clearSelection: true);
 
   /// Backspace in an empty search field removes the last chip.
   bool removeLastToken() {
@@ -175,6 +194,15 @@ final visibleItemsProvider = Provider<List<ClipItem>>((ref) {
       tokens: tokens,
     ),
   );
+});
+
+/// Source app name → bundle ID, for app icons on filter chips.
+final appBundleIDsProvider = Provider<Map<String, String>>((ref) {
+  final clips = ref.watch(clipboardSnapshotProvider.select((s) => s.clips));
+  return {
+    for (final clip in clips.reversed)
+      if (clip.sourceBundleID.isNotEmpty) clip.source: clip.sourceBundleID,
+  };
 });
 
 /// Filter chips to offer for the text currently typed in search.

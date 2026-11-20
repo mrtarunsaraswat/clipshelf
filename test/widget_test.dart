@@ -76,6 +76,12 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// The shelf keeps search collapsed behind its search button.
+  Future<void> openShelfSearch(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Search (⌘F)'));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets(
     'Floating panel exposes pin and close, with paste and copy actions',
     (tester) async {
@@ -199,11 +205,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(calls.last.method, 'copy');
       expect(calls.last.arguments, {'id': 'a', 'paste': false});
+      await openShelfSearch(tester);
       await tester.enterText(find.byType(TextField), 'missing');
       await tester.pumpAndSettle();
       expect(find.text('Nothing matches just yet.'), findsOneWidget);
       await tester.enterText(find.byType(TextField), '');
-      await tester.tap(find.text('Snippets'));
+      await tester.tap(find.byTooltip('Snippets'));
       await tester.pumpAndSettle();
       expect(find.text('Hello there'), findsWidgets);
       expect(find.text('Meeting notes'), findsNothing);
@@ -213,7 +220,7 @@ void main() {
     tester,
   ) async {
     await load(tester);
-    await tester.tap(find.text('New snippet'));
+    await tester.tap(find.byTooltip('New snippet (⌘N)'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save snippet'));
     await tester.pumpAndSettle();
@@ -330,13 +337,14 @@ void main() {
     tester,
   ) async {
     await load(tester);
+    await openShelfSearch(tester);
     final container = ProviderScope.containerOf(
       tester.element(find.byType(TextField)),
     );
     await tester.tap(find.byType(TextField));
     await tester.enterText(find.byType(TextField), 'tex');
     await tester.pumpAndSettle();
-    expect(find.text('tab'), findsOneWidget); // first suggestion's hint
+    expect(find.text('TextEdit'), findsOneWidget); // app suggestion in the menu
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
     final tokens = container.read(libraryViewProvider).tokens;
@@ -347,6 +355,38 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(libraryViewProvider).tokens, isEmpty);
   });
+  testWidgets(
+    'Shelf search: typing opens it, ↓ and Return pick a filter, Escape clears then closes',
+    (tester) async {
+      await load(tester);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ClipShelf)),
+      );
+      expect(find.byType(TextField), findsNothing); // collapsed by default
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyT, character: 't');
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+      expect(container.read(libraryViewProvider).query, 't');
+      await tester.enterText(find.byType(TextField), 'tex');
+      await tester.pumpAndSettle();
+      // Suggestions: Text, then the TextEdit app. ↓ moves to the second.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(container.read(libraryViewProvider).tokens.map((t) => t.label), [
+        'TextEdit',
+      ]);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape); // clear
+      await tester.pumpAndSettle();
+      expect(container.read(libraryViewProvider).tokens, isEmpty);
+      expect(find.byType(TextField), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape); // close
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byTooltip('Search (⌘F)'), findsOneWidget);
+      expect(calls.where((c) => c.method == 'hide'), isEmpty);
+    },
+  );
   testWidgets('Menu-bar panel opens the snippet editor in one click', (
     tester,
   ) async {
@@ -570,8 +610,9 @@ void main() {
     'Reopening the menu-bar panel clears stale search and collection state',
     (tester) async {
       await load(tester);
+      await openShelfSearch(tester);
       await tester.enterText(find.byType(TextField), 'missing');
-      await tester.tap(find.text('Snippets'));
+      await tester.tap(find.byTooltip('Snippets'));
       await tester.pumpAndSettle();
       presentation = 'quick';
       tester.binding.channelBuffers.push(

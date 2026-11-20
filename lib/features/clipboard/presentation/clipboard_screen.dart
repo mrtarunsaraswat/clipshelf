@@ -48,6 +48,42 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
     );
   }
 
+  void _openSearch() {
+    ref.read(libraryViewProvider.notifier).openSearch();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
+  }
+
+  /// On the shelf, typing a letter while the cards have focus opens search
+  /// with that letter, so there is no need to click the search button first.
+  KeyEventResult _typeToSearch(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || !node.hasPrimaryFocus) {
+      return KeyEventResult.ignored;
+    }
+    final character = event.character;
+    final keyboard = HardwareKeyboard.instance;
+    if (character == null ||
+        character.trim().isEmpty ||
+        character.codeUnitAt(0) < 0x20 ||
+        keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return KeyEventResult.ignored;
+    }
+    _search.value = TextEditingValue(
+      text: character,
+      selection: TextSelection.collapsed(offset: character.length),
+    );
+    ref.read(libraryViewProvider.notifier)
+      ..search(character)
+      ..openSearch();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
+    return KeyEventResult.handled;
+  }
+
   @override
   Widget build(BuildContext context) {
     final actions = ClipboardActions(context, ref);
@@ -73,7 +109,11 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
             ref.read(panelSessionProvider).sequence != next.sequence) {
           return;
         }
-        _searchFocus.requestFocus();
+        // The panels always show search; the shelf only once it is opened.
+        final searchVisible =
+            next.presentation != PanelPresentation.shelf ||
+            ref.read(libraryViewProvider).searchOpen;
+        (searchVisible ? _searchFocus : _libraryFocus).requestFocus();
         if (_scroll.hasClients) _scroll.jumpTo(0);
       });
     });
@@ -105,8 +145,7 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): actions.hide,
-        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () =>
-            _searchFocus.requestFocus(),
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _openSearch,
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true): () =>
             actions.showSnippet(),
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true):
@@ -129,6 +168,7 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
       child: Focus(
         focusNode: _libraryFocus,
         autofocus: true,
+        onKeyEvent: _typeToSearch,
         child: quick
             ? QuickPanel(
                 actions: actions,
