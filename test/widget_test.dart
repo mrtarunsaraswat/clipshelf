@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:clipshelf/app/app.dart';
 import 'package:clipshelf/features/clipboard/application/library_view_controller.dart';
 import 'package:clipshelf/features/clipboard/domain/clipboard_item.dart';
@@ -418,6 +420,42 @@ void main() {
       Clip.hardEdge,
     );
   });
+  testWidgets('Menu-bar image rows show a thumbnail with app, time and size', (
+    tester,
+  ) async {
+    presentation = 'quick';
+    await load(tester);
+    // A 1×1 PNG stands in for the screenshot thumbnail.
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    );
+    currentState = {
+      ...currentState,
+      'clips': [
+        {
+          ...clip('img', 'Screenshot 2026-11-20.png'),
+          'kind': 'image',
+          'text': '',
+          'source': 'Screenshot',
+          'preview': png,
+          'pixelWidth': 2880,
+          'pixelHeight': 1800,
+        },
+        ...currentState['clips'] as List,
+      ],
+    };
+    tester.binding.channelBuffers.push(
+      clipboardChannel.name,
+      const StandardMethodCodec().encodeMethodCall(
+        MethodCall('changed', currentState),
+      ),
+      (_) {},
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Screenshot 2026-11-20.png'), findsOneWidget);
+    expect(find.textContaining('Screenshot · '), findsOneWidget);
+    expect(find.textContaining('2880 × 1800'), findsOneWidget);
+  });
   testWidgets('Menu-bar panel opens the snippet editor in one click', (
     tester,
   ) async {
@@ -472,7 +510,7 @@ void main() {
   ) async {
     presentation = 'quick';
     await load(tester);
-    tester.view.physicalSize = const Size(440, 560);
+    tester.view.physicalSize = const Size(360, 560);
     await tester.pumpAndSettle();
     expect(find.text('Click an item to paste'), findsOneWidget);
     expect(find.textContaining('Enable Accessibility'), findsOneWidget);
@@ -488,7 +526,7 @@ void main() {
   ) async {
     presentation = 'quick';
     await load(tester);
-    tester.view.physicalSize = const Size(440, 560);
+    tester.view.physicalSize = const Size(360, 560);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Copy to clipboard').first);
     await tester.pumpAndSettle();
@@ -509,7 +547,7 @@ void main() {
     (tester) async {
       presentation = 'quick';
       await load(tester);
-      tester.view.physicalSize = const Size(440, 560);
+      tester.view.physicalSize = const Size(360, 560);
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('quick-item-a')),
@@ -544,7 +582,7 @@ void main() {
     (tester) async {
       presentation = 'quick';
       await load(tester);
-      tester.view.physicalSize = const Size(440, 560);
+      tester.view.physicalSize = const Size(360, 560);
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Enable Accessibility for one-click paste.'),

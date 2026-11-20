@@ -46,8 +46,10 @@ void main() {
     const preferencesPreview = bool.fromEnvironment('PREFERENCES_PREVIEW');
     tester.view.physicalSize = preferencesPreview
         ? const Size(760, 640)
+        : floatingPreview
+        ? const Size(440, 560) // floating panel default
         : quickPreview
-        ? const Size(440, 560)
+        ? const Size(360, 560) // menu-bar panel
         : const Size(1280, 430);
     tester.view.devicePixelRatio = 1;
     final now = DateTime.now().millisecondsSinceEpoch / 1000;
@@ -62,21 +64,43 @@ void main() {
           clipboardChannel,
           (call) async => call.method == 'state'
               ? {
-                  'clips': [
-                    for (var i = 0; i < texts.length; i++)
+                  // The screenshot goes second so a full image row shows.
+                  'clips': () {
+                    final clips = [
+                      for (var i = 0; i < texts.length; i++)
+                        {
+                          'id': '$i',
+                          'title': texts[i].split('\n').first,
+                          'text': texts[i],
+                          'kind': 'text',
+                          'source': i == 1 ? 'Safari' : 'Notes',
+                          'snippet': false,
+                          'date': now - i * 180,
+                          'size': texts[i].length,
+                          'formats': ['public.utf8-plain-text'],
+                          'boardID': i == 2 ? 'work' : '',
+                        },
+                      // A screenshot, to show image cards and rows.
                       {
-                        'id': '$i',
-                        'title': texts[i].split('\n').first,
-                        'text': texts[i],
-                        'kind': 'text',
-                        'source': i == 1 ? 'Safari' : 'Notes',
+                        'id': 'shot',
+                        'title': 'Screenshot 2026-11-20 at 10.42.png',
+                        'text': '',
+                        'kind': 'image',
+                        'source': 'Screenshot',
                         'snippet': false,
-                        'date': now - i * 180,
-                        'size': texts[i].length,
-                        'formats': ['public.utf8-plain-text'],
-                        'boardID': i == 2 ? 'work' : '',
+                        'date': now - 90,
+                        'size': 1,
+                        'formats': ['public.png'],
+                        'boardID': '',
+                        'preview': File('widget-medium-text-preview.png')
+                            .readAsBytesSync(),
+                        'pixelWidth': 2880,
+                        'pixelHeight': 1800,
                       },
-                  ],
+                    ];
+                    clips.insert(1, clips.removeLast());
+                    return clips;
+                  }(),
                   'boards': [
                     {'id': 'work', 'name': 'Work', 'color': 0},
                     {'id': 'ideas', 'name': 'Ideas', 'color': 2},
@@ -132,6 +156,13 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+    // Image.memory decodes asynchronously; finish decoding before rendering.
+    await tester.runAsync(() async {
+      for (final element in find.byType(Image).evaluate()) {
+        await precacheImage((element.widget as Image).image, element);
+      }
+    });
     await tester.pumpAndSettle();
     // Search open with suggestions, rendered into build/ for review.
     if (const bool.fromEnvironment('SEARCH_PREVIEW')) {

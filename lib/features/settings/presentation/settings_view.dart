@@ -22,6 +22,13 @@ class SettingsView extends ConsumerWidget {
     final syncStatus = sync.message;
     final syncConfigured = sync.configured;
     final subtitle = settingsSubtitleStyle(context);
+    final narrow = MediaQuery.sizeOf(context).width < 520;
+    final allowButton = FilledButton(
+      onPressed: () async {
+        await actions.requestAccessibility();
+      },
+      child: const Text('Allow access'),
+    );
     return ListView(
       padding: const EdgeInsets.only(right: 4),
       children: [
@@ -132,9 +139,20 @@ class SettingsView extends ConsumerWidget {
                     ? 'Accessibility is enabled'
                     : 'Allow direct paste',
               ),
-              subtitle: Text(
-                'Manage access in System Settings → Privacy & Security.',
-                style: subtitle,
+              // Narrow windows put the button under the text, not beside it.
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Manage access in System Settings → Privacy & Security.',
+                    style: subtitle,
+                  ),
+                  if (narrow && !accessibility)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      child: allowButton,
+                    ),
+                ],
               ),
               trailing: accessibility
                   ? Icon(
@@ -142,12 +160,9 @@ class SettingsView extends ConsumerWidget {
                       color: colors.accentText,
                       semanticLabel: 'Accessibility enabled',
                     )
-                  : FilledButton(
-                      onPressed: () async {
-                        await actions.requestAccessibility();
-                      },
-                      child: const Text('Allow access'),
-                    ),
+                  : narrow
+                  ? null
+                  : allowButton,
             ),
           ],
         ),

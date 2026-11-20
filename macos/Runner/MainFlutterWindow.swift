@@ -433,7 +433,7 @@ final class ClipboardBridge: NSObject {
     showQuick()
   }
   static func quickFrame(anchor: NSRect, visible: NSRect) -> NSRect {
-    let width = min(440, visible.width - 16)
+    let width = min(360, visible.width - 16)  // menu-bar panel width
     let height = min(560, visible.height - 16)
     let x = min(max(anchor.midX - width / 2, visible.minX + 8), visible.maxX - width - 8)
     let y = max(visible.minY + 8, min(anchor.minY - height - 8, visible.maxY - height - 8))

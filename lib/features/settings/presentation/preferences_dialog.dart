@@ -10,8 +10,13 @@ class PreferencesDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.shelf;
+    // In the narrow menu-bar panel, use nearly the whole width.
+    final narrow = MediaQuery.sizeOf(context).width < 520;
     return Dialog(
       clipBehavior: Clip.antiAlias,
+      insetPadding: narrow
+          ? const EdgeInsets.symmetric(horizontal: 10, vertical: 16)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
       child: SizedBox(
         width: 640,
         height: 560,
