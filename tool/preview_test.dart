@@ -92,7 +92,7 @@ void main() {
                         'size': 1,
                         'formats': ['public.png'],
                         'boardID': '',
-                        'preview': File('widget-medium-text-preview.png')
+                        'preview': File('screenshots/widget-medium-text-preview.png')
                             .readAsBytesSync(),
                         'pixelWidth': 2880,
                         'pixelHeight': 1800,
@@ -203,7 +203,7 @@ void main() {
         : 'preview';
     await expectLater(
       find.byKey(const ValueKey('preview')),
-      matchesGoldenFile('../$name${dark ? '-dark' : ''}.png'),
+      matchesGoldenFile('../screenshots/$name${dark ? '-dark' : ''}.png'),
     );
   });
 }
