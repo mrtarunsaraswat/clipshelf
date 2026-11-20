@@ -189,6 +189,9 @@ class _SmartSearchFieldState extends ConsumerState<SmartSearchField> {
             controller: widget.controller,
             focusNode: widget.focusNode,
             autofocus: widget.autofocus,
+            // The field is taller than one line of text (it matches the
+            // capsule and prefix height); keep the text and caret centred.
+            textAlignVertical: TextAlignVertical.center,
             onChanged: (value) {
               setState(() {
                 _highlight = 0;
