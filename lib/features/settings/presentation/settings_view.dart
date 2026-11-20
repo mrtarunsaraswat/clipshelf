@@ -205,8 +205,9 @@ class _ComingSoonBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+    // Amber, like the Paused pill: it signals "waiting", not an action.
     decoration: BoxDecoration(
-      color: colors.surfaceSelected,
+      color: colors.warningSurface,
       borderRadius: BorderRadius.circular(20),
     ),
     child: Text(
@@ -214,7 +215,7 @@ class _ComingSoonBadge extends StatelessWidget {
       style: TextStyle(
         fontSize: ShelfType.caption,
         fontWeight: FontWeight.w600,
-        color: colors.accentText,
+        color: colors.warningText,
       ),
     ),
   );
