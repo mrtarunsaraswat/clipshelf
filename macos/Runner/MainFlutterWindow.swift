@@ -156,6 +156,26 @@ class MainFlutterWindow: NSPanel {
     }
     return super.performKeyEquivalent(with: event)
   }
+  /// Wraps [content] in the best native glass available.
+  static func glassBackground(containing content: NSView) -> NSView {
+    #if compiler(>=6.2)  // Xcode 26 SDK; older toolchains (e.g. CI) build the fallback only
+    if #available(macOS 26.0, *) {
+      let glass = NSGlassEffectView()
+      glass.style = .regular  // .clear is too see-through behind dense text
+      glass.cornerRadius = 16
+      glass.contentView = content
+      return glass
+    }
+    #endif
+    let blur = NSVisualEffectView()
+    blur.material = .popover
+    blur.blendingMode = .behindWindow
+    blur.state = .active  // a non-activating panel must not fall back to the inactive look
+    content.frame = blur.bounds
+    content.autoresizingMask = [.width, .height]
+    blur.addSubview(content)
+    return blur
+  }
   func openClipShelfURL(_ url: URL) {
     guard url.scheme == "clipshelf", url.host == "open" else { return }
     let view = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "view" }?.value
@@ -163,20 +183,14 @@ class MainFlutterWindow: NSPanel {
   }
   override func awakeFromNib() {
     let controller = FlutterViewController()
-    // Native glass: a behind-window blur shows through Flutter's transparent canvas.
-    // AppKit swaps in an opaque material by itself when Reduce Transparency is on.
+    // Native glass shows through Flutter's transparent canvas: Liquid Glass on
+    // macOS 26, the frosted behind-window blur before that. AppKit swaps in an
+    // opaque surface by itself when Reduce Transparency is on.
     controller.backgroundColor = .clear
     isOpaque = false
     backgroundColor = .clear
     hasShadow = true
-    let glass = NSVisualEffectView()
-    glass.material = .popover
-    glass.blendingMode = .behindWindow
-    glass.state = .active  // a non-activating panel must not fall back to the inactive look
-    controller.view.frame = glass.bounds
-    controller.view.autoresizingMask = [.width, .height]
-    glass.addSubview(controller.view)
-    contentView = glass
+    contentView = Self.glassBackground(containing: controller.view)
     flutterView = controller.view
     flutterController = controller
     setContentSize(NSSize(width: 1120, height: 430))
