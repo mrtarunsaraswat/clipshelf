@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/overlay_route_tracker.dart';
+
 import '../application/clipboard_controller.dart';
 import '../application/library_view_controller.dart';
 import '../application/panel_session.dart';
@@ -96,27 +98,25 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
       }
     });
     ref.listen(panelSessionProvider, (previous, next) {
-      // Menus belong to the visible panel session: never reveal one left
-      // behind when the native window was hidden.
-      Navigator.of(context)
-          .popUntil((route) => route is! PopupRoute || route is DialogRoute);
-      if (next.visible) {
-        // Reopening starts at the clipboard. Editors keep their drafts, and
-        // Preferences stays when it sent the user to System Settings.
-        final keepPreferences = ref.read(returnToPreferencesProvider);
-        ref.read(returnToPreferencesProvider.notifier).set(false);
-        Navigator.of(context).popUntil(
-          (route) =>
-              route is! DialogRoute ||
-              route.settings.name == editorDialogRoute ||
-              (keepPreferences &&
-                  route.settings.name == preferencesDialogRoute),
-        );
-      }
+      // A panel session starts at the clipboard: menus, Preferences,
+      // previews and confirmations go. Editors keep their drafts, and
+      // Preferences stays when it sent the user to System Settings. They are
+      // removed instantly when the panel hides, so reopening never shows a
+      // stale frame of them; reopening repeats it in case a close was missed.
+      final keepPreferences = ref.read(returnToPreferencesProvider);
+      ref
+          .read(overlayRouteTrackerProvider)
+          .removeWhere(
+            (route) =>
+                route.settings.name != editorDialogRoute &&
+                !(keepPreferences &&
+                    route.settings.name == preferencesDialogRoute),
+          );
       if (!next.visible) {
         _searchFocus.unfocus();
         return;
       }
+      ref.read(returnToPreferencesProvider.notifier).set(false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted ||
             ref.read(panelSessionProvider).sequence != next.sequence) {

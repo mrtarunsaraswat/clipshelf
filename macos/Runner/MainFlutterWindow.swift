@@ -538,7 +538,20 @@ final class ClipboardBridge: NSObject {
         window.setFrame(Self.quickFrame(anchor: anchor, visible: visible), display: true)
       }
     }
+    // A short fade-in: smoother, and it covers the frame Flutter needs to
+    // redraw the reopened panel.
+    let fadeIn = window?.isVisible != true
+    if fadeIn { window?.alphaValue = 0 }
     presentPanel()
+    if fadeIn, let window = window {
+      NSAnimationContext.runAnimationGroup { context in
+        context.duration = 0.12
+        context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        window.animator().alphaValue = 1
+      }
+    } else {
+      window?.alphaValue = 1
+    }
     channel.invokeMethod("opened", arguments: "quick")
     publish()
   }

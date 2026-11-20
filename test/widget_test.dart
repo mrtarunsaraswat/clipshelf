@@ -187,7 +187,13 @@ void main() {
       await tester.tap(find.byTooltip('Preferences'));
       await tester.pumpAndSettle();
       expect(find.byTooltip('Close preferences'), findsOneWidget);
-      await reopenPanel(tester);
+      // Gone the moment the panel hides, with no closing animation, so the
+      // reopened panel never shows a stale frame of it.
+      nativePanelEvent(tester, 'closed');
+      await tester.pump();
+      expect(find.byTooltip('Close preferences'), findsNothing);
+      nativePanelEvent(tester, 'opened', 'quick');
+      await tester.pumpAndSettle();
       expect(find.byTooltip('Close preferences'), findsNothing);
     },
   );
