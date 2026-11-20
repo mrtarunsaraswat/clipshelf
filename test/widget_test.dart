@@ -299,6 +299,34 @@ void main() {
       'paste': true,
     });
   });
+  testWidgets('Menu-bar panel opens the snippet editor in one click', (
+    tester,
+  ) async {
+    presentation = 'quick';
+    await load(tester);
+    await tester.tap(find.byTooltip('New snippet (⌘N)'));
+    await tester.pumpAndSettle();
+    expect(find.text('A little less typing.'), findsOneWidget);
+  });
+  testWidgets(
+    'Native ⌘-number quick use pastes even while the search field has focus',
+    (tester) async {
+      presentation = 'quick';
+      await load(tester);
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      tester.binding.channelBuffers.push(
+        clipboardChannel.name,
+        const StandardMethodCodec().encodeMethodCall(MethodCall('quickUse', 1)),
+        (_) {},
+      );
+      await tester.pumpAndSettle();
+      expect(calls.where((c) => c.method == 'copy').single.arguments, {
+        'id': 'c',
+        'paste': true,
+      });
+    },
+  );
   testWidgets(
     'Sync needs explicit consent before the platform is asked to upload',
     (tester) async {

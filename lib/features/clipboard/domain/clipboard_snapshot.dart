@@ -123,6 +123,13 @@ final class PanelOpened extends ClipboardEvent {
   final PanelPresentation presentation;
 }
 
+/// The native panel caught ⌘1–⌘9 (index 0–8) before a focused text field
+/// could swallow it.
+final class QuickUseRequested extends ClipboardEvent {
+  const QuickUseRequested(this.index);
+  final int index;
+}
+
 final class PanelClosed extends ClipboardEvent {
   const PanelClosed();
 }

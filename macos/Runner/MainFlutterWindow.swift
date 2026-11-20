@@ -61,6 +61,24 @@ struct Archive: Codable {
   var syncEnabled: Bool? = nil
 }
 
+/// Maps ⌘ plus a top-row digit to a quick-use index (⌘1 → 0 … ⌘9 → 8). Uses key
+/// codes, not characters, so layouts that need Shift for digits still work.
+enum QuickUseKey {
+  static let digitKeyCodes: [UInt16] = [
+    UInt16(kVK_ANSI_1), UInt16(kVK_ANSI_2), UInt16(kVK_ANSI_3), UInt16(kVK_ANSI_4), UInt16(kVK_ANSI_5),
+    UInt16(kVK_ANSI_6), UInt16(kVK_ANSI_7), UInt16(kVK_ANSI_8), UInt16(kVK_ANSI_9),
+  ]
+  static func index(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Int? {
+    let relevant = modifiers.intersection([.command, .shift, .option, .control])
+    guard relevant == .command else { return nil }
+    return digitKeyCodes.firstIndex(of: keyCode)
+  }
+  static func index(for event: NSEvent) -> Int? {
+    guard event.type == .keyDown else { return nil }
+    return index(keyCode: event.keyCode, modifiers: event.modifierFlags)
+  }
+}
+
 class MainFlutterWindow: NSPanel {
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
@@ -69,6 +87,15 @@ class MainFlutterWindow: NSPanel {
   /// window's contentViewController; keep it for first-responder handling.
   private(set) var flutterView: NSView?
   private var flutterController: FlutterViewController?
+  /// ⌘1–⌘9 must reach the panel even while Flutter's search field is the first
+  /// responder, where AppKit's text handling can swallow ⌘-number keys.
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    if let index = QuickUseKey.index(for: event) {
+      bridge?.quickUse(index)
+      return true
+    }
+    return super.performKeyEquivalent(with: event)
+  }
   func openClipShelfURL(_ url: URL) {
     guard url.scheme == "clipshelf", url.host == "open" else { return }
     let view = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "view" }?.value
@@ -555,6 +582,7 @@ final class ClipboardBridge: NSObject {
        "accentColor": Self.accentARGB(), "reduceTransparency": NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency]
   }
   func publish() { channel.invokeMethod("changed", arguments: state()) }
+  func quickUse(_ index: Int) { channel.invokeMethod("quickUse", arguments: index) }
   /// The user's macOS accent colour as 0xAARRGGBB, for the Flutter theme.
   static func accentARGB() -> Int {
     guard let color = NSColor.controlAccentColor.usingColorSpace(.sRGB) else { return 0xFF167D70 }

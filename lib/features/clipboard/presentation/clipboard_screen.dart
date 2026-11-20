@@ -38,7 +38,8 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
         ref.read(clipboardSnapshotProvider).presentation !=
         PanelPresentation.shelf;
     _scroll.animateTo(
-      (index * (quick ? 80.0 : 262.0)).clamp(
+      // Quick rows are 64 pt plus a 2 pt gap; shelf cards 248 pt plus 14.
+      (index * (quick ? 66.0 : 262.0)).clamp(
         0,
         _scroll.position.maxScrollExtent,
       ),
@@ -75,6 +76,13 @@ class _ClipboardScreenState extends ConsumerState<ClipboardScreen> {
         _searchFocus.requestFocus();
         if (_scroll.hasClients) _scroll.jumpTo(0);
       });
+    });
+    ref.listen(quickUseRequestProvider, (previous, request) {
+      if (request == null) return;
+      final visible = ref.read(visibleItemsProvider);
+      if (request.index >= 0 && request.index < visible.length) {
+        actions.paste(visible[request.index]);
+      }
     });
     final items = ref.watch(visibleItemsProvider);
     final current = ref.watch(selectedItemProvider);

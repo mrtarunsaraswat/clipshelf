@@ -1,3 +1,4 @@
+import Carbon
 // Native logic checks use an in-memory boundary by default.
 // Pass --system-pasteboard to additionally exercise an isolated named macOS pasteboard.
 import Cocoa
@@ -242,6 +243,12 @@ check(!PanelDismissalPolicy.shouldDismissAfterFocusChange(ownsFocus: true, prese
 check(PanelDismissalPolicy.shouldDismissAfterFocusChange(ownsFocus: false, presentation: "quick", pinned: true), "genuine focus loss still dismisses quick panel")
 check(!PanelDismissalPolicy.shouldDismissAfterFocusChange(ownsFocus: false, presentation: "floating", pinned: true), "focus changes preserve pinned floating behavior")
 check(PanelDismissalPolicy.shouldDismissAfterFocusChange(ownsFocus: false, presentation: "floating", pinned: false), "unpinned floating panel follows normal focus dismissal")
+
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_1), modifiers: .command) == 0, "⌘1 maps to the first quick-use item")
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_9), modifiers: [.command, .capsLock]) == 8, "⌘9 maps to the ninth item, ignoring Caps Lock")
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_1), modifiers: [.command, .shift]) == nil, "⇧⌘1 is not quick use")
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_1), modifiers: []) == nil, "a bare 1 is typed into search, not quick use")
+check(QuickUseKey.index(keyCode: UInt16(kVK_ANSI_0), modifiers: .command) == nil, "⌘0 is not a quick-use key")
 
 let localGroup = "ABCDE12345.clipshelf"
 check(WidgetFavoritesStore.authorizes(group: localGroup, memberships: [localGroup], signingTeam: "ABCDE12345"), "macOS Team-ID group accepts its actual signing team")

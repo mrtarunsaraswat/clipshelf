@@ -101,6 +101,17 @@ class QuickPanel extends ConsumerWidget {
                       color: snapshot.floatingPinned ? colors.accentText : null,
                     ),
                   ),
+                // New snippet is a primary action: keep it one click away
+                // instead of only in the More menu.
+                IconButton(
+                  style: toolbarButtonStyle(
+                    colors,
+                    foreground: colors.accentText,
+                  ),
+                  tooltip: 'New snippet (⌘N)',
+                  onPressed: () => actions.showSnippet(),
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                ),
                 IconButton(
                   style: toolbarButtonStyle(colors),
                   tooltip: 'Open full shelf',
