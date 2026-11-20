@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipshelf/app/theme.dart';
+import 'package:clipshelf/app/widgets/app_logo.dart';
 import 'package:clipshelf/app/widgets/keycap.dart';
 import 'package:clipshelf/app/widgets/toolbar_button.dart';
 import 'package:clipshelf/features/clipboard/application/clipboard_controller.dart';
@@ -59,7 +60,7 @@ class QuickPanel extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
             child: Row(
               children: [
-                Icon(Icons.layers_rounded, color: colors.accentText, size: 20),
+                const AppLogo(size: 22),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Listener(
