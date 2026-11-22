@@ -277,6 +277,31 @@ let restingShelf = NSRect(x: 12, y: 12, width: 1400, height: 430)
 check(ClipboardBridge.shelfSlideFrame(restingShelf, reduceMotion: false) == restingShelf.offsetBy(dx: 0, dy: -28), "shelf slides up from just below its resting frame")
 check(ClipboardBridge.shelfSlideFrame(restingShelf, reduceMotion: true) == restingShelf, "Reduce Motion: the shelf only fades")
 
+// Opening from the widget activates ClipShelf, so one outside click fires the
+// click monitor, the focus change and app-resign together. Only one slide-out
+// may run, and reopening mid-slide must restore a clean, opaque window.
+_ = NSApplication.shared
+let shelfWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 400), styleMask: [.borderless], backing: .buffered, defer: true)
+shelfWindow.isReleasedWhenClosed = false
+let shelfBridge = ClipboardBridge(window: shelfWindow, messenger: Messenger(), storageURL: folder.appendingPathComponent("shelf.json"), pasteboard: MemoryPasteboard(), startMonitoring: false)
+shelfBridge.show()
+RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+let shownShelf = shelfWindow.frame
+shelfBridge.dismissPanel()
+let closingGeneration = shelfBridge.panelGeneration
+check(shelfBridge.shelfClosing, "dismissing the shelf starts its slide-out")
+shelfBridge.dismissPanel(); shelfBridge.dismissIfTransient()
+check(shelfBridge.panelGeneration == closingGeneration, "repeat dismissals during the slide-out are ignored")
+shelfBridge.show()
+check(!shelfBridge.shelfClosing && shelfWindow.isVisible, "reopening mid slide-out cancels the close")
+RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+check(shelfWindow.isVisible && shelfWindow.alphaValue == 1, "reopened shelf stays visible and opaque")
+check(shelfWindow.frame == shownShelf, "reopened shelf settles at its resting frame")
+shelfBridge.dismissPanel()
+RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+check(!shelfWindow.isVisible && !shelfBridge.shelfClosing, "the slide-out finishes by hiding the shelf")
+check(shelfWindow.alphaValue == 1 && shelfWindow.frame == shownShelf, "a closed shelf is reset to its resting frame")
+
 let vsCodeCopy = { (session: String) in
   Clip(id: UUID().uuidString, title: "let x = 1", text: "let x = 1", kind: "text", source: "Code", date: 1, snippet: false,
     items: [["public.utf8-plain-text": Data("let x = 1".utf8), "org.chromium.web-custom-data": Data(session.utf8)]], preview: nil)

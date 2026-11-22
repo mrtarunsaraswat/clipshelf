@@ -21,7 +21,7 @@ flutter test
 
 The local app is at `build/macos/Build/Products/Release/ClipShelf.app`. The build script configures Flutter, builds through Xcode's project entry point, and ad-hoc signs/verifies the result. The workspace entry point failed in the restricted development environment. Swift Package Manager is disabled because there are no native plugin dependencies and nested manifest sandboxing was unavailable.
 
-Regenerate the sample UI rendering on macOS with:
+Regenerate the sample UI renderings (saved in `screenshots/`, used by the README) on macOS with:
 
 ```sh
 flutter test --update-goldens tool/preview_test.dart
