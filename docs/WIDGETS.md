@@ -84,7 +84,7 @@ swiftc -parse-as-library -DCLIPSHELF_WIDGET_PREVIEW \
   -module-cache-path build/native-tests/module-cache \
   macos/Shared/WidgetFavorites.swift macos/ClipShelfWidgets/ClipShelfWidgets.swift \
   tool/render_widget_preview.swift -o build/native-tests/render-widget
-build/native-tests/render-widget
+build/native-tests/render-widget   # run from the repository root; writes screenshots/widget-*.png
 ```
 
 The SwiftUI tool uses the actual widget content with sample favorites; system Link labels are rendered statically only for this preview because ImageRenderer cannot draw Links. These are layout previews, not screenshots of a registered desktop widget.
